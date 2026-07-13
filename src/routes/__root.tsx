@@ -64,11 +64,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Gen CB Kasir: aplikasi kasir (POS) modern untuk kafe, kantin, dan bazar. Cepat, ramah tablet, dengan struk otomatis dan manajemen produk.",
       },
-      { property: "og:title", content: "Gen CB Kasir" },
-      { property: "og:description", content: "Aplikasi kasir modern GEN-CB untuk kafe & kantin." },
+      { property: "og:title", content: "Gen CB Kasir — Aplikasi Kasir Modern" },
+      { property: "og:description", content: "Gen CB Kasir: aplikasi kasir (POS) modern untuk kafe, kantin, dan bazar. Cepat, ramah tablet, dengan struk otomatis dan manajemen produk." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "theme-color", content: "#0047B3" },
+      { name: "twitter:title", content: "Gen CB Kasir — Aplikasi Kasir Modern" },
+      { name: "twitter:description", content: "Gen CB Kasir: aplikasi kasir (POS) modern untuk kafe, kantin, dan bazar. Cepat, ramah tablet, dengan struk otomatis dan manajemen produk." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/130a6129-7d1f-476f-b601-5bcc481bf344" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/130a6129-7d1f-476f-b601-5bcc481bf344" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
