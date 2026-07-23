@@ -1,9 +1,11 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Coffee, LayoutGrid, LogOut, Package, Receipt, type LucideIcon } from "lucide-react";
+import { LayoutGrid, LogOut, Package, Receipt, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 import { toast } from "sonner";
 import { logout } from "@/lib/auth.functions";
+import logoAsset from "@/assets/gen-cb-logo.png.asset.json";
+
 
 type NavItem = { to: "/kasir" | "/produk" | "/transaksi"; label: string; icon: LucideIcon };
 
