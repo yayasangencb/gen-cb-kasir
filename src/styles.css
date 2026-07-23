@@ -67,16 +67,18 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.06 260);
 
-  /* Deep Blue #002B7F */
-  --brand-deep: oklch(0.32 0.16 265);
-  /* Royal Blue #0047B3 */
-  --brand: oklch(0.44 0.19 260);
+  /* Deep Blue #003B8F */
+  --brand-deep: oklch(0.36 0.17 264);
+  /* Royal Blue #003B8F (primary) */
+  --brand: oklch(0.36 0.17 264);
   --brand-foreground: oklch(0.99 0.005 240);
-  /* Sky Blue #00A3FF */
-  --brand-sky: oklch(0.7 0.17 235);
+  /* Sky Blue #1E6FD9 */
+  --brand-sky: oklch(0.58 0.18 255);
 
-  --primary: oklch(0.44 0.19 260);
+
+  --primary: oklch(0.36 0.17 264);
   --primary-foreground: oklch(0.99 0.005 240);
+
   --secondary: oklch(0.96 0.02 250);
   --secondary-foreground: oklch(0.32 0.16 265);
 
