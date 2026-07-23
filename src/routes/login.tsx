@@ -50,22 +50,23 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center p-6">
       <div className="glass-card grid w-full max-w-4xl grid-cols-1 overflow-hidden rounded-3xl md:grid-cols-2">
         {/* Left panel */}
-        <div className="relative overflow-hidden p-10 text-white" style={{ background: "linear-gradient(135deg, #002B7F, #0047B3 60%, #00A3FF)" }}>
+        <div className="relative overflow-hidden p-10 text-white" style={{ background: "linear-gradient(135deg, #003B8F 0%, #003B8F 55%, #1E6FD9 100%)" }}>
           <div className="absolute -top-16 -right-10 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
           <div className="absolute bottom-0 -left-10 h-56 w-56 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(255,122,0,0.35), transparent)" }} />
           <div className="relative">
-            <div className="flex items-center gap-3">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/15 backdrop-blur">
-                <Coffee className="h-8 w-8" />
+            <div className="flex items-center gap-4">
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white p-2 shadow-lg">
+                <img src={logoAsset.url} alt="Logo GEN-CB" className="h-full w-full object-contain" />
               </div>
               <div>
-                <div className="text-xs uppercase tracking-widest text-white/70">GEN-CB</div>
-                <div className="text-3xl font-extrabold">Gen CB Kasir</div>
+                <div className="text-xs uppercase tracking-widest text-white/70">Yayasan GEN-CB</div>
+                <div className="text-3xl font-extrabold">GEN-CB Kasir</div>
               </div>
             </div>
             <p className="mt-8 text-white/85">
-              Aplikasi kasir modern untuk kafe, kantin, dan bazar GEN-CB. Cepat, ramah tablet, dan mudah digunakan.
+              Aplikasi kasir internal Yayasan Generasi Cerdas Beraksi. Cepat, ramah tablet, dan mudah digunakan.
             </p>
+
             <ul className="mt-6 space-y-2 text-sm text-white/85">
               <li>• Transaksi cepat dengan sekali sentuh</li>
               <li>• Perhitungan kembalian otomatis</li>
