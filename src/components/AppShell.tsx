@@ -61,7 +61,7 @@ export function AppShell({
                     ? "text-white shadow-md"
                     : "text-muted-foreground hover:bg-[color:var(--brand)]/5 hover:text-[color:var(--brand-deep)]"
                 }`}
-                style={active ? { background: "linear-gradient(135deg,#002B7F,#0047B3)" } : undefined}
+                style={active ? { background: "linear-gradient(135deg,#003B8F,#1E6FD9)" } : undefined}
               >
                 <Icon className="h-5 w-5" />
                 {item.label}
