@@ -1,9 +1,11 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Coffee, Delete, ShieldCheck } from "lucide-react";
+import { Delete, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { loginWithPin } from "@/lib/auth.functions";
+import logoAsset from "@/assets/gen-cb-logo.png.asset.json";
+
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
