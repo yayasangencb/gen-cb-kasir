@@ -38,13 +38,14 @@ export function AppShell({
     <div className="flex min-h-screen">
       <aside className="hidden w-64 flex-col border-r border-border/60 bg-white/70 backdrop-blur md:flex">
         <div className="flex items-center gap-3 px-5 py-5">
-          <div className="grid h-11 w-11 place-items-center rounded-xl text-white" style={{ background: "linear-gradient(135deg,#002B7F,#00A3FF)" }}>
-            <Coffee className="h-6 w-6" />
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-white p-1 ring-1 ring-border">
+            <img src={logoAsset.url} alt="Logo GEN-CB" className="h-full w-full object-contain" />
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">GEN-CB</div>
-            <div className="text-lg font-extrabold text-[color:var(--brand-deep)]">Gen CB Kasir</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Yayasan GEN-CB</div>
+            <div className="text-lg font-extrabold text-[color:var(--brand-deep)]">GEN-CB Kasir</div>
           </div>
+
         </div>
 
         <nav className="mt-2 flex flex-1 flex-col gap-1 px-3">
