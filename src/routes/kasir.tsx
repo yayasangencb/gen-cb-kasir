@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
+import { Minus, Plus, Search, ShoppingBag, ShoppingCart, Trash2, User, Utensils } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -22,7 +22,14 @@ export const Route = createFileRoute("/kasir")({
   component: KasirPage,
 });
 
-type CartLine = { product_id: string; product_name: string; price: number; qty: number };
+type CartLine = {
+  product_id: string;
+  product_name: string;
+  price: number;
+  qty: number;
+  stock_available: number;
+  notes?: string;
+};
 
 function KasirPage() {
   const staff = Route.useLoaderData();
@@ -36,6 +43,9 @@ function KasirPage() {
 
   const [q, setQ] = useState("");
   const [catId, setCatId] = useState<string | "all">("all");
+  const [customerName, setCustomerName] = useState("");
+  const [orderType, setOrderType] = useState<"dine_in" | "take_away">("dine_in");
+  const [orderNotes, setOrderNotes] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [showPay, setShowPay] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -49,24 +59,52 @@ function KasirPage() {
     });
   }, [data, q, catId]);
 
-  const addToCart = (p: { id: string; name: string; price: number; stock: number }) => {
+  const addToCart = (p: { id: string; name: string; selling_price: number; stock: number }) => {
     if (p.stock <= 0) {
-      toast.error("Stok habis");
+      toast.error(`Stok ${p.name} habis`);
       return;
     }
+
     setCart((c) => {
       const idx = c.findIndex((l) => l.product_id === p.id);
       if (idx >= 0) {
+        const currentQty = c[idx].qty;
+        if (currentQty >= p.stock) {
+          toast.error(`Jumlah melebihi stok yang tersedia (${p.stock})`);
+          return c;
+        }
         const next = [...c];
-        next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
+        next[idx] = { ...next[idx], qty: currentQty + 1 };
         return next;
       }
-      return [...c, { product_id: p.id, product_name: p.name, price: Number(p.price), qty: 1 }];
+      return [
+        ...c,
+        {
+          product_id: p.id,
+          product_name: p.name,
+          price: Number(p.selling_price),
+          qty: 1,
+          stock_available: p.stock,
+        },
+      ];
     });
   };
 
-  const setQty = (id: string, qty: number) =>
-    setCart((c) => (qty <= 0 ? c.filter((l) => l.product_id !== id) : c.map((l) => (l.product_id === id ? { ...l, qty } : l))));
+  const setQty = (id: string, qty: number) => {
+    setCart((c) => {
+      if (qty <= 0) return c.filter((l) => l.product_id !== id);
+      return c.map((l) => {
+        if (l.product_id === id) {
+          if (qty > l.stock_available) {
+            toast.error(`Stok tidak mencukupi (maksimal ${l.stock_available})`);
+            return l;
+          }
+          return { ...l, qty };
+        }
+        return l;
+      });
+    });
+  };
 
   const removeLine = (id: string) => setCart((c) => c.filter((l) => l.product_id !== id));
 
@@ -77,29 +115,25 @@ function KasirPage() {
     try {
       const res = await doCheckout({
         data: {
-          items: cart.map((l) => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, qty: l.qty })),
+          items: cart.map((l) => ({
+            product_id: l.product_id,
+            quantity: l.qty,
+            notes: l.notes || undefined,
+          })),
+          customer_name: customerName.trim() || undefined,
+          order_type: orderType,
           discount: 0,
-          tax: 0,
-          paid,
           payment_method: method,
+          amount_paid: paid,
+          notes: orderNotes.trim() || undefined,
         },
       });
-      toast.success(`Transaksi berhasil! Antrean #${String(res.transaction.queue_no).padStart(3, "0")}`);
-      setReceipt({
-        invoice_no: res.transaction.invoice_no,
-        queue_no: res.transaction.queue_no,
-        cashier_name: res.transaction.cashier_name,
-        created_at: res.transaction.created_at,
-        subtotal: Number(res.transaction.subtotal),
-        discount: Number(res.transaction.discount),
-        tax: Number(res.transaction.tax),
-        total: Number(res.transaction.total),
-        paid: Number(res.transaction.paid),
-        change_amount: Number(res.transaction.change_amount),
-        payment_method: res.transaction.payment_method,
-        items: res.items.map((it) => ({ product_name: it.product_name, qty: it.qty, price: Number(it.price), subtotal: Number(it.subtotal) })),
-      });
+
+      toast.success(`Transaksi Berhasil! Antrean #${String(res.queue_number).padStart(3, "0")}`);
+      setReceipt(res);
       setCart([]);
+      setCustomerName("");
+      setOrderNotes("");
       setShowPay(false);
       refetch();
     } catch (e) {
@@ -109,28 +143,29 @@ function KasirPage() {
 
   return (
     <AppShell staff={staff} fullBleed>
-      <div className="grid h-screen grid-cols-1 lg:grid-cols-[1fr_420px]">
-        {/* Products */}
-        <section className="flex min-h-0 flex-col p-5">
+      <div className="grid h-screen grid-cols-1 lg:grid-cols-[1fr_440px] bg-[color:var(--bg-soft,#F7F9FC)]">
+        {/* Products Section (65%) */}
+        <section className="flex min-h-0 flex-col p-4 sm:p-6">
           <header className="mb-4 flex flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-extrabold text-[color:var(--brand-deep)]">Kasir</h1>
-              <p className="text-sm text-muted-foreground">Pilih produk untuk menambahkan ke keranjang.</p>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[color:var(--brand-deep)]">Kasir POS</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">Sentuh produk untuk memasukkan ke keranjang.</p>
             </div>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Cari produk..."
-                className="w-72 rounded-xl border border-border bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[color:var(--brand)]"
+                placeholder="Cari produk atau SKU..."
+                className="w-full rounded-2xl border border-border bg-white py-3 pl-10 pr-4 text-sm font-medium outline-none shadow-sm focus:border-[color:var(--brand)]"
               />
             </div>
           </header>
 
-          <div className="mb-3 flex flex-wrap gap-2">
+          {/* Category Chips */}
+          <div className="mb-4 flex flex-wrap gap-2 overflow-x-auto pb-1">
             <CatChip active={catId === "all"} onClick={() => setCatId("all")}>
-              Semua
+              Semua Produk
             </CatChip>
             {(data?.categories ?? []).map((c) => (
               <CatChip key={c.id} active={catId === c.id} onClick={() => setCatId(c.id)}>
@@ -139,88 +174,189 @@ function KasirPage() {
             ))}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto pr-1">
+          {/* Product Grid */}
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {isLoading ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-4">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="h-40 animate-pulse rounded-2xl bg-white/60" />
+                  <div key={i} className="h-44 animate-pulse rounded-3xl bg-white/70" />
                 ))}
               </div>
             ) : products.length === 0 ? (
-              <div className="grid h-full place-items-center text-muted-foreground">Tidak ada produk.</div>
+              <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
+                <ShoppingBag className="mb-3 h-12 w-12 opacity-30 text-[color:var(--brand)]" />
+                <div className="text-base font-bold">Belum ada produk</div>
+                <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+                  {q || catId !== "all"
+                    ? "Tidak ada produk yang cocok dengan pencarian atau filter."
+                    : "Tambahkan produk pertama Anda melalui menu Produk di panel admin."}
+                </p>
+              </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-                {products.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart({ id: p.id, name: p.name, price: Number(p.price), stock: p.stock })}
-                    disabled={p.stock <= 0}
-                    className="group relative flex flex-col items-start rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-border transition hover:-translate-y-0.5 hover:shadow-md hover:ring-[color:var(--brand)]/40 disabled:opacity-50"
-                  >
-                    <div className="mb-3 grid h-24 w-full place-items-center rounded-xl text-3xl font-black text-white" style={{ background: "linear-gradient(135deg,#0047B3,#00A3FF)" }}>
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="line-clamp-2 min-h-[2.5rem] font-semibold">{p.name}</div>
-                    <div className="mt-1 text-lg font-extrabold text-[color:var(--brand-deep)]">{rupiah(Number(p.price))}</div>
-                    <div className={`mt-1 text-[11px] font-semibold ${p.stock <= 5 ? "text-destructive" : "text-muted-foreground"}`}>
-                      Stok: {p.stock}
-                    </div>
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-4">
+                {products.map((p) => {
+                  const outOfStock = p.stock <= 0;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() =>
+                        addToCart({
+                          id: p.id,
+                          name: p.name,
+                          selling_price: Number(p.selling_price),
+                          stock: p.stock,
+                        })
+                      }
+                      disabled={outOfStock || !p.is_available}
+                      className={`group relative flex flex-col items-start rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-border/80 transition-all hover:-translate-y-1 hover:shadow-md hover:ring-[color:var(--brand)]/50 active:scale-95 disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none`}
+                    >
+                      {/* Image / Fallback Icon */}
+                      <div className="relative mb-3 h-28 w-full overflow-hidden rounded-2xl bg-secondary/80 flex items-center justify-center">
+                        {p.image_url ? (
+                          <img
+                            src={p.image_url}
+                            alt={p.name}
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          />
+                        ) : (
+                          <div
+                            className="grid h-full w-full place-items-center text-3xl font-black text-white"
+                            style={{ background: "linear-gradient(135deg,#002B7F,#00A3FF)" }}
+                          >
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {outOfStock && (
+                          <div className="absolute inset-0 grid place-items-center bg-black/60 backdrop-blur-xs text-white font-extrabold text-xs uppercase tracking-wider">
+                            Habis
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="line-clamp-2 min-h-[2.5rem] font-bold text-sm text-[color:var(--brand-deep)]">
+                        {p.name}
+                      </div>
+                      <div className="mt-1 text-base font-black text-[color:var(--brand)]">
+                        {rupiah(Number(p.selling_price))}
+                      </div>
+
+                      <div className="mt-2 flex w-full items-center justify-between text-[11px] font-semibold text-muted-foreground border-t border-border/40 pt-2">
+                        <span className={p.stock <= p.minimum_stock ? "text-amber-600 font-bold" : ""}>
+                          Stok: {p.stock} {p.unit || "pcs"}
+                        </span>
+                        {!p.is_available && <span className="text-red-500 font-bold">Tidak Dijual</span>}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         </section>
 
-        {/* Cart */}
-        <aside className="flex min-h-0 flex-col border-l border-border bg-white/80 backdrop-blur">
-          <div className="border-b border-border p-5">
+        {/* Cart Sidebar Section (35%) */}
+        <aside className="flex min-h-0 flex-col border-l border-border/80 bg-white shadow-xl">
+          {/* Header */}
+          <div className="border-b border-border/60 p-4 sm:p-5">
             <div className="flex items-center gap-3">
-              <ShoppingCart className="h-6 w-6 text-[color:var(--brand)]" />
-              <div>
-                <div className="text-xs uppercase tracking-widest text-muted-foreground">Keranjang</div>
-                <div className="text-lg font-extrabold text-[color:var(--brand-deep)]">{cart.length} item</div>
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[color:var(--brand)]/10 text-[color:var(--brand)]">
+                <ShoppingCart className="h-5 w-5" />
               </div>
-              <div className="ml-auto text-right text-xs text-muted-foreground">
-                Kasir: <b className="text-foreground">{staff.name}</b>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">Keranjang</div>
+                <div className="text-lg font-extrabold text-[color:var(--brand-deep)]">{cart.length} Jenis Item</div>
+              </div>
+              <div className="ml-auto text-right text-xs">
+                <span className="text-muted-foreground">Kasir:</span> <b className="text-foreground">{staff.name}</b>
+              </div>
+            </div>
+
+            {/* Customer Name & Order Type */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="relative">
+                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Nama Pelanggan..."
+                  className="w-full rounded-xl border border-border bg-secondary/50 py-2 pl-9 pr-3 text-xs font-semibold outline-none focus:border-[color:var(--brand)]"
+                />
+              </div>
+
+              <div className="flex rounded-xl bg-secondary/80 p-1 border border-border/50 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setOrderType("dine_in")}
+                  className={`flex-1 rounded-lg py-1.5 transition ${
+                    orderType === "dine_in"
+                      ? "bg-[color:var(--brand-deep)] text-white shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Dine In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderType("take_away")}
+                  className={`flex-1 rounded-lg py-1.5 transition ${
+                    orderType === "take_away"
+                      ? "bg-[color:var(--brand-deep)] text-white shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Take Away
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto p-4">
+          {/* Cart Item List */}
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
             {cart.length === 0 ? (
               <div className="grid h-full place-items-center text-center text-muted-foreground">
                 <div>
-                  <ShoppingCart className="mx-auto mb-2 h-10 w-10 opacity-40" />
-                  Belum ada produk.
-                  <br />
-                  Sentuh produk untuk menambahkan.
+                  <Utensils className="mx-auto mb-2 h-10 w-10 opacity-30 text-[color:var(--brand)]" />
+                  <div className="font-bold text-sm">Keranjang Masih Kosong</div>
+                  <p className="mt-1 text-xs text-muted-foreground">Sentuh produk di sebelah kiri untuk memesan.</p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {cart.map((l) => (
-                  <div key={l.product_id} className="rounded-2xl bg-secondary p-3">
+                  <div key={l.product_id} className="rounded-2xl bg-secondary/70 p-3 border border-border/40">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="truncate font-semibold">{l.product_name}</div>
-                        <div className="text-xs text-muted-foreground">{rupiah(l.price)}</div>
+                        <div className="truncate font-bold text-sm text-[color:var(--brand-deep)]">{l.product_name}</div>
+                        <div className="text-xs font-semibold text-muted-foreground">{rupiah(l.price)}</div>
                       </div>
-                      <button onClick={() => removeLine(l.product_id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white hover:text-destructive">
+                      <button
+                        onClick={() => removeLine(l.product_id)}
+                        className="rounded-lg p-1.5 text-muted-foreground hover:bg-white hover:text-destructive transition"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2 rounded-full bg-white p-1 ring-1 ring-border">
-                        <button onClick={() => setQty(l.product_id, l.qty - 1)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary">
-                          <Minus className="h-4 w-4" />
+
+                    <div className="mt-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2 rounded-full bg-white p-1 ring-1 ring-border shadow-2xs">
+                        <button
+                          onClick={() => setQty(l.product_id, l.qty - 1)}
+                          className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <div className="w-8 text-center font-bold">{l.qty}</div>
-                        <button onClick={() => setQty(l.product_id, l.qty + 1)} className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--brand)] text-white">
-                          <Plus className="h-4 w-4" />
+                        <div className="w-7 text-center font-black text-sm">{l.qty}</div>
+                        <button
+                          onClick={() => setQty(l.product_id, l.qty + 1)}
+                          className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--brand)] text-white shadow-xs"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <div className="font-extrabold text-[color:var(--brand-deep)]">{rupiah(l.price * l.qty)}</div>
+                      <div className="font-black text-base text-[color:var(--brand-deep)]">
+                        {rupiah(l.price * l.qty)}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -228,29 +364,34 @@ function KasirPage() {
             )}
           </div>
 
-          <div className="border-t border-border p-5">
-            <div className="mb-2 flex justify-between text-sm text-muted-foreground">
+          {/* Checkout Action Footer */}
+          <div className="border-t border-border/80 p-4 sm:p-5 bg-white">
+            <div className="mb-2 flex justify-between text-xs text-muted-foreground font-medium">
               <span>Subtotal</span>
-              <span>{rupiah(subtotal)}</span>
+              <span className="font-bold text-foreground">{rupiah(subtotal)}</span>
             </div>
-            <div className="mb-4 flex items-baseline justify-between">
-              <span className="text-sm font-semibold text-muted-foreground">TOTAL</span>
-              <span className="text-3xl font-extrabold text-[color:var(--brand-deep)]">{rupiah(total)}</span>
+
+            <div className="mb-4 flex items-baseline justify-between border-t border-dashed border-border pt-2">
+              <span className="text-sm font-extrabold text-muted-foreground">TOTAL DIBAYAR</span>
+              <span className="text-3xl font-black text-[color:var(--brand-deep)]">{rupiah(total)}</span>
             </div>
+
             <div className="grid grid-cols-2 gap-2">
               <button
+                type="button"
                 onClick={() => setCart([])}
                 disabled={cart.length === 0}
-                className="rounded-2xl bg-secondary py-4 font-bold text-[color:var(--brand-deep)] disabled:opacity-40"
+                className="rounded-2xl bg-secondary py-3.5 text-xs font-extrabold text-[color:var(--brand-deep)] hover:bg-secondary/80 disabled:opacity-40"
               >
                 Kosongkan
               </button>
               <button
+                type="button"
                 onClick={() => setShowPay(true)}
                 disabled={cart.length === 0}
-                className="btn-orange rounded-2xl py-4 font-extrabold disabled:opacity-50"
+                className="btn-orange rounded-2xl py-3.5 text-base font-extrabold shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Bayar
+                Bayar Sekarang
               </button>
             </div>
           </div>
@@ -267,10 +408,10 @@ function CatChip({ active, onClick, children }: { active: boolean; onClick: () =
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+      className={`rounded-full px-4 py-2 text-xs font-extrabold transition shadow-xs ${
         active
           ? "text-white shadow-md"
-          : "bg-white text-muted-foreground ring-1 ring-border hover:text-[color:var(--brand-deep)]"
+          : "bg-white text-muted-foreground ring-1 ring-border/80 hover:text-[color:var(--brand-deep)] hover:bg-secondary/60"
       }`}
       style={active ? { background: "linear-gradient(135deg,#002B7F,#0047B3)" } : undefined}
     >

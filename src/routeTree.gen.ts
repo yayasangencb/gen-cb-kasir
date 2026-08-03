@@ -9,25 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TransaksiRouteImport } from './routes/transaksi'
-import { Route as ProdukRouteImport } from './routes/produk'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as KasirRouteImport } from './routes/kasir'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DisplayPesananRouteImport } from './routes/display-pesanan'
+import { Route as KasirRouteImport } from './routes/kasir'
+import { Route as KategoriRouteImport } from './routes/kategori'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as OmzetRouteImport } from './routes/omzet'
+import { Route as PengaturanRouteImport } from './routes/pengaturan'
+import { Route as PenggunaRouteImport } from './routes/pengguna'
+import { Route as PesananAktifRouteImport } from './routes/pesanan-aktif'
+import { Route as ProdukRouteImport } from './routes/produk'
+import { Route as StokRouteImport } from './routes/stok'
+import { Route as TransaksiRouteImport } from './routes/transaksi'
 
-const TransaksiRoute = TransaksiRouteImport.update({
-  id: '/transaksi',
-  path: '/transaksi',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProdukRoute = ProdukRouteImport.update({
-  id: '/produk',
-  path: '/produk',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const DisplayPesananRoute = DisplayPesananRouteImport.update({
+  id: '/display-pesanan',
+  path: '/display-pesanan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KasirRoute = KasirRouteImport.update({
@@ -35,71 +37,169 @@ const KasirRoute = KasirRouteImport.update({
   path: '/kasir',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const KategoriRoute = KategoriRouteImport.update({
+  id: '/kategori',
+  path: '/kategori',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OmzetRoute = OmzetRouteImport.update({
+  id: '/omzet',
+  path: '/omzet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PengaturanRoute = PengaturanRouteImport.update({
+  id: '/pengaturan',
+  path: '/pengaturan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PenggunaRoute = PenggunaRouteImport.update({
+  id: '/pengguna',
+  path: '/pengguna',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PesananAktifRoute = PesananAktifRouteImport.update({
+  id: '/pesanan-aktif',
+  path: '/pesanan-aktif',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProdukRoute = ProdukRouteImport.update({
+  id: '/produk',
+  path: '/produk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StokRoute = StokRouteImport.update({
+  id: '/stok',
+  path: '/stok',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TransaksiRoute = TransaksiRouteImport.update({
+  id: '/transaksi',
+  path: '/transaksi',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
+  '/kategori': typeof KategoriRoute
   '/login': typeof LoginRoute
+  '/omzet': typeof OmzetRoute
+  '/pengaturan': typeof PengaturanRoute
+  '/pengguna': typeof PenggunaRoute
+  '/pesanan-aktif': typeof PesananAktifRoute
   '/produk': typeof ProdukRoute
+  '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
+  '/kategori': typeof KategoriRoute
   '/login': typeof LoginRoute
+  '/omzet': typeof OmzetRoute
+  '/pengaturan': typeof PengaturanRoute
+  '/pengguna': typeof PenggunaRoute
+  '/pesanan-aktif': typeof PesananAktifRoute
   '/produk': typeof ProdukRoute
+  '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
+  '/kategori': typeof KategoriRoute
   '/login': typeof LoginRoute
+  '/omzet': typeof OmzetRoute
+  '/pengaturan': typeof PengaturanRoute
+  '/pengguna': typeof PenggunaRoute
+  '/pesanan-aktif': typeof PesananAktifRoute
   '/produk': typeof ProdukRoute
+  '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/kasir' | '/login' | '/produk' | '/transaksi'
+  fullPaths:
+    | '/'
+    | '/display-pesanan'
+    | '/kasir'
+    | '/kategori'
+    | '/login'
+    | '/omzet'
+    | '/pengaturan'
+    | '/pengguna'
+    | '/pesanan-aktif'
+    | '/produk'
+    | '/stok'
+    | '/transaksi'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/kasir' | '/login' | '/produk' | '/transaksi'
-  id: '__root__' | '/' | '/kasir' | '/login' | '/produk' | '/transaksi'
+  to:
+    | '/'
+    | '/display-pesanan'
+    | '/kasir'
+    | '/kategori'
+    | '/login'
+    | '/omzet'
+    | '/pengaturan'
+    | '/pengguna'
+    | '/pesanan-aktif'
+    | '/produk'
+    | '/stok'
+    | '/transaksi'
+  id:
+    | '__root__'
+    | '/'
+    | '/display-pesanan'
+    | '/kasir'
+    | '/kategori'
+    | '/login'
+    | '/omzet'
+    | '/pengaturan'
+    | '/pengguna'
+    | '/pesanan-aktif'
+    | '/produk'
+    | '/stok'
+    | '/transaksi'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DisplayPesananRoute: typeof DisplayPesananRoute
   KasirRoute: typeof KasirRoute
+  KategoriRoute: typeof KategoriRoute
   LoginRoute: typeof LoginRoute
+  OmzetRoute: typeof OmzetRoute
+  PengaturanRoute: typeof PengaturanRoute
+  PenggunaRoute: typeof PenggunaRoute
+  PesananAktifRoute: typeof PesananAktifRoute
   ProdukRoute: typeof ProdukRoute
+  StokRoute: typeof StokRoute
   TransaksiRoute: typeof TransaksiRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/transaksi': {
-      id: '/transaksi'
-      path: '/transaksi'
-      fullPath: '/transaksi'
-      preLoaderRoute: typeof TransaksiRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/produk': {
-      id: '/produk'
-      path: '/produk'
-      fullPath: '/produk'
-      preLoaderRoute: typeof ProdukRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/display-pesanan': {
+      id: '/display-pesanan'
+      path: '/display-pesanan'
+      fullPath: '/display-pesanan'
+      preLoaderRoute: typeof DisplayPesananRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kasir': {
@@ -109,11 +209,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KasirRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/kategori': {
+      id: '/kategori'
+      path: '/kategori'
+      fullPath: '/kategori'
+      preLoaderRoute: typeof KategoriRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/omzet': {
+      id: '/omzet'
+      path: '/omzet'
+      fullPath: '/omzet'
+      preLoaderRoute: typeof OmzetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pengaturan': {
+      id: '/pengaturan'
+      path: '/pengaturan'
+      fullPath: '/pengaturan'
+      preLoaderRoute: typeof PengaturanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pengguna': {
+      id: '/pengguna'
+      path: '/pengguna'
+      fullPath: '/pengguna'
+      preLoaderRoute: typeof PenggunaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pesanan-aktif': {
+      id: '/pesanan-aktif'
+      path: '/pesanan-aktif'
+      fullPath: '/pesanan-aktif'
+      preLoaderRoute: typeof PesananAktifRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/produk': {
+      id: '/produk'
+      path: '/produk'
+      fullPath: '/produk'
+      preLoaderRoute: typeof ProdukRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stok': {
+      id: '/stok'
+      path: '/stok'
+      fullPath: '/stok'
+      preLoaderRoute: typeof StokRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/transaksi': {
+      id: '/transaksi'
+      path: '/transaksi'
+      fullPath: '/transaksi'
+      preLoaderRoute: typeof TransaksiRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -121,11 +277,28 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DisplayPesananRoute: DisplayPesananRoute,
   KasirRoute: KasirRoute,
+  KategoriRoute: KategoriRoute,
   LoginRoute: LoginRoute,
+  OmzetRoute: OmzetRoute,
+  PengaturanRoute: PengaturanRoute,
+  PenggunaRoute: PenggunaRoute,
+  PesananAktifRoute: PesananAktifRoute,
   ProdukRoute: ProdukRoute,
+  StokRoute: StokRoute,
   TransaksiRoute: TransaksiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

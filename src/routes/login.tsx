@@ -1,15 +1,14 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Delete, ShieldCheck } from "lucide-react";
+import { Delete, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { loginWithPin } from "@/lib/auth.functions";
 import logoAsset from "@/assets/gen-cb-logo.png.asset.json";
 
-
 export const Route = createFileRoute("/login")({
   component: LoginPage,
-  head: () => ({ meta: [{ title: "Login — Gen CB Kasir" }] }),
+  head: () => ({ meta: [{ title: "Masuk — Gen CB Kasir" }] }),
 });
 
 function LoginPage() {
@@ -31,99 +30,110 @@ function LoginPage() {
     try {
       const res = await login({ data: { pin } });
       if (!res.ok) {
-        toast.error(res.error || "PIN salah");
+        toast.error(res.error || "PIN tidak valid");
         setPin("");
         return;
       }
-      toast.success(`Selamat datang, ${res.staff.name}`);
-      if (res.staff.role === "admin") await router.navigate({ to: "/kasir" });
-      else if (res.staff.role === "kasir") await router.navigate({ to: "/kasir" });
-      else await router.navigate({ to: "/kasir" });
+      toast.success(`Selamat datang kembali, ${res.staff.name}`);
+      if (res.staff.role === "admin") {
+        await router.navigate({ to: "/" });
+      } else {
+        await router.navigate({ to: "/kasir" });
+      }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Login gagal");
+      toast.error(e instanceof Error ? e.message : "Gagal masuk");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <div className="glass-card grid w-full max-w-4xl grid-cols-1 overflow-hidden rounded-3xl md:grid-cols-2">
-        {/* Left panel */}
-        <div className="relative overflow-hidden p-10 text-white" style={{ background: "linear-gradient(135deg, #003B8F 0%, #003B8F 55%, #1E6FD9 100%)" }}>
-          <div className="absolute -top-16 -right-10 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute bottom-0 -left-10 h-56 w-56 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(255,122,0,0.35), transparent)" }} />
-          <div className="relative">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-[color:var(--bg-soft,#F7F9FC)]">
+      <div className="glass-card grid w-full max-w-4xl grid-cols-1 overflow-hidden rounded-3xl md:grid-cols-2 shadow-2xl border border-border/80">
+        {/* Left Branding Panel */}
+        <div
+          className="relative overflow-hidden p-8 md:p-12 text-white flex flex-col justify-between"
+          style={{ background: "linear-gradient(135deg, #002B7F 0%, #0047B3 60%, #00A3FF 100%)" }}
+        >
+          <div className="absolute -top-16 -right-10 h-64 w-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          <div
+            className="absolute bottom-0 -left-10 h-56 w-56 rounded-full pointer-events-none"
+            style={{ background: "radial-gradient(closest-side, rgba(255,122,0,0.35), transparent)" }}
+          />
+          <div className="relative z-10">
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white p-2 shadow-lg">
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white p-2 shadow-xl">
                 <img src={logoAsset.url} alt="Logo GEN-CB" className="h-full w-full object-contain" />
               </div>
               <div>
-                <div className="text-xs uppercase tracking-widest text-white/70">Yayasan GEN-CB</div>
-                <div className="text-3xl font-extrabold">GEN-CB Kasir</div>
+                <div className="text-xs uppercase tracking-widest text-white/80 font-bold">Yayasan GEN-CB</div>
+                <div className="text-3xl font-extrabold tracking-tight">GEN-CB Kasir</div>
               </div>
             </div>
-            <p className="mt-8 text-white/85">
-              Aplikasi kasir internal Yayasan Generasi Cerdas Beraksi. Cepat, ramah tablet, dan mudah digunakan.
+            <p className="mt-8 text-sm leading-relaxed text-white/90 font-medium">
+              Sistem Kasir Produksi & Manajemen Antrean Penjualan Yayasan Generasi Cerdas Beraksi. Cepat, aman, dan siap operasional.
             </p>
 
-            <ul className="mt-6 space-y-2 text-sm text-white/85">
-              <li>• Transaksi cepat dengan sekali sentuh</li>
-              <li>• Perhitungan kembalian otomatis</li>
-              <li>• Struk instan & riwayat lengkap</li>
+            <ul className="mt-6 space-y-2.5 text-xs text-white/85 font-medium">
+              <li className="flex items-center gap-2">• Transaksi kasir cepat & akurat untuk tablet</li>
+              <li className="flex items-center gap-2">• Sinkronisasi antrean real-time ke Display Pesanan</li>
+              <li className="flex items-center gap-2">• Laporan omzet dan audit pergerakan stok otomatis</li>
             </ul>
-            <div className="mt-10 rounded-2xl bg-white/10 p-4 text-xs text-white/80 backdrop-blur">
-              <div className="mb-1 flex items-center gap-2 font-semibold text-white">
-                <ShieldCheck className="h-4 w-4" /> PIN Demo
-              </div>
-              Admin: <b>1234</b> · Kasir: <b>2222</b> · Dapur: <b>3333</b>
+          </div>
+
+          <div className="relative z-10 mt-8 rounded-2xl bg-white/10 p-4 text-xs text-white/90 backdrop-blur border border-white/20">
+            <div className="flex items-center gap-2 font-bold mb-1">
+              <Lock className="h-4 w-4 text-amber-300" /> Otentikasi Petugas
             </div>
+            Gunakan PIN terdaftar untuk masuk ke sistem Kasir atau Panel Administrator.
           </div>
         </div>
 
-        {/* Right panel */}
-        <div className="p-8 md:p-10">
-          <h2 className="text-2xl font-bold text-[color:var(--brand-deep)]">Masuk dengan PIN</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Masukkan PIN petugas untuk mulai bekerja.</p>
+        {/* Right PIN Keypad Panel */}
+        <div className="p-8 md:p-10 flex flex-col justify-center bg-white">
+          <div className="text-center md:text-left">
+            <h2 className="text-2xl font-extrabold text-[color:var(--brand-deep)]">Masuk Sistem Kasir</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Masukkan PIN petugas Anda untuk mulai bekerja.</p>
+          </div>
 
-          <div className="mt-6 flex justify-center gap-3">
+          <div className="mt-8 flex justify-center gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className={`h-4 w-4 rounded-full border-2 transition ${
+                className={`h-4 w-4 rounded-full border-2 transition-all ${
                   i < pin.length
-                    ? "border-[color:var(--brand)] bg-[color:var(--brand)]"
-                    : "border-border bg-transparent"
+                    ? "border-[color:var(--brand)] bg-[color:var(--brand)] scale-110 shadow-sm"
+                    : "border-border bg-secondary"
                 }`}
               />
             ))}
           </div>
 
-          <div className="mx-auto mt-6 grid max-w-xs grid-cols-3 gap-3">
+          <div className="mx-auto mt-8 grid max-w-xs grid-cols-3 gap-3 w-full">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
               <button
                 key={n}
                 onClick={() => press(String(n))}
-                className="h-16 rounded-2xl bg-white text-2xl font-bold shadow-sm ring-1 ring-border transition active:scale-95 hover:bg-[color:var(--brand)]/5"
+                className="h-16 rounded-2xl bg-secondary/80 text-2xl font-black text-[color:var(--brand-deep)] shadow-sm ring-1 ring-border/60 transition active:scale-95 hover:bg-[color:var(--brand)]/10"
               >
                 {n}
               </button>
             ))}
             <button
               onClick={clear}
-              className="h-16 rounded-2xl bg-white text-sm font-semibold text-muted-foreground shadow-sm ring-1 ring-border active:scale-95"
+              className="h-16 rounded-2xl bg-secondary/80 text-xs font-extrabold text-muted-foreground shadow-sm ring-1 ring-border/60 active:scale-95 hover:bg-secondary"
             >
-              Hapus
+              C
             </button>
             <button
               onClick={() => press("0")}
-              className="h-16 rounded-2xl bg-white text-2xl font-bold shadow-sm ring-1 ring-border transition active:scale-95 hover:bg-[color:var(--brand)]/5"
+              className="h-16 rounded-2xl bg-secondary/80 text-2xl font-black text-[color:var(--brand-deep)] shadow-sm ring-1 ring-border/60 transition active:scale-95 hover:bg-[color:var(--brand)]/10"
             >
               0
             </button>
             <button
               onClick={back}
-              className="grid h-16 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-border active:scale-95"
+              className="grid h-16 place-items-center rounded-2xl bg-secondary/80 shadow-sm ring-1 ring-border/60 active:scale-95 hover:bg-secondary"
             >
               <Delete className="h-6 w-6 text-muted-foreground" />
             </button>
@@ -132,9 +142,9 @@ function LoginPage() {
           <button
             onClick={submit}
             disabled={busy || pin.length < 3}
-            className="btn-brand mt-6 w-full rounded-2xl py-4 text-base font-bold disabled:opacity-50"
+            className="btn-brand mt-8 w-full rounded-2xl py-4 text-base font-extrabold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {busy ? "Memeriksa..." : "Masuk"}
+            {busy ? "Memeriksa PIN..." : "Masuk Sistem"}
           </button>
         </div>
       </div>
