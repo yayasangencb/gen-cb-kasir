@@ -1,114 +1,159 @@
-import { rupiah } from "@/lib/format";
 import { Printer, X } from "lucide-react";
+import { useState } from "react";
+import { rupiah } from "@/lib/format";
+import logoAsset from "@/assets/gen-cb-logo.png.asset.json";
 
 export type ReceiptData = {
-  invoice_no: string;
-  queue_no: number;
+  transaction_id: string;
+  transaction_number: string;
+  queue_number: number;
   cashier_name: string | null;
+  customer_name: string | null;
+  order_type: string;
   created_at: string;
   subtotal: number;
   discount: number;
-  tax: number;
-  total: number;
-  paid: number;
+  grand_total: number;
+  amount_paid: number;
   change_amount: number;
   payment_method: string;
-  items: { product_name: string; qty: number; price: number; subtotal: number }[];
+  notes: string | null;
+  items: { name: string; quantity: number; price: number; subtotal: number; notes: string | null }[];
+  store: {
+    store_name: string;
+    address: string | null;
+    phone: string | null;
+    receipt_footer: string;
+    receipt_paper: string;
+    logo_url: string | null;
+  } | null;
+};
+
+const METHOD_LABEL: Record<string, string> = {
+  tunai: "TUNAI",
+  qris: "QRIS",
+  transfer: "TRANSFER",
+  ewallet: "E-WALLET",
+  lainnya: "LAINNYA",
 };
 
 export function ReceiptModal({ data, onClose }: { data: ReceiptData; onClose: () => void }) {
-  const handlePrint = () => window.print();
-  const d = new Date(data.created_at);
-  const dateStr = d.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+  const [paper, setPaper] = useState<"58mm" | "80mm">(data.store?.receipt_paper === "58mm" ? "58mm" : "80mm");
+  const widthPx = paper === "58mm" ? 220 : 300;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 print:static print:bg-transparent print:p-0">
-      <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl print:max-w-none print:rounded-none print:shadow-none">
-        <div className="flex items-center justify-between border-b border-border p-4 print:hidden">
-          <div className="font-bold text-[color:var(--brand-deep)]">Struk Pembayaran</div>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-secondary">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div id="receipt-print" className="p-6 font-mono text-[13px] text-black">
-          <div className="text-center">
-            <div className="text-lg font-extrabold tracking-wide">GEN-CB KASIR</div>
-            <div className="text-[11px]">Jl. Contoh No. 123 · WA 0812-0000-0000</div>
-          </div>
-          <div className="my-3 border-t border-dashed border-black" />
-          <div className="flex justify-between text-[12px]">
-            <span>No. {data.invoice_no}</span>
-            <span>Antrean #{String(data.queue_no).padStart(3, "0")}</span>
-          </div>
-          <div className="flex justify-between text-[12px]">
-            <span>Kasir: {data.cashier_name || "-"}</span>
-            <span>{dateStr}</span>
-          </div>
-          <div className="my-3 border-t border-dashed border-black" />
-          <div className="space-y-1">
-            {data.items.map((it, i) => (
-              <div key={i}>
-                <div>{it.product_name}</div>
-                <div className="flex justify-between">
-                  <span>
-                    {it.qty} x {rupiah(it.price)}
-                  </span>
-                  <span>{rupiah(it.subtotal)}</span>
-                </div>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/50 p-4 print:static print:bg-white print:p-0">
+      <div className="w-full max-w-md rounded-3xl bg-white p-4 shadow-2xl print:max-w-none print:rounded-none print:p-0 print:shadow-none">
+        <div className="mb-3 flex items-center justify-between print:hidden">
+          <div className="flex gap-1 rounded-xl bg-secondary p-1">
+            {(["58mm", "80mm"] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPaper(p)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
+                  paper === p ? "bg-white text-[color:var(--brand-deep)] shadow" : "text-muted-foreground"
+                }`}
+              >
+                {p}
+              </button>
             ))}
           </div>
-          <div className="my-3 border-t border-dashed border-black" />
-          <Row label="Subtotal" val={rupiah(data.subtotal)} />
-          {data.discount > 0 && <Row label="Diskon" val={"- " + rupiah(data.discount)} />}
-          {data.tax > 0 && <Row label="Pajak" val={rupiah(data.tax)} />}
-          <div className="mt-1 flex justify-between text-base font-extrabold">
-            <span>TOTAL</span>
-            <span>{rupiah(data.total)}</span>
-          </div>
-          <div className="my-3 border-t border-dashed border-black" />
-          <Row label={`Bayar (${data.payment_method})`} val={rupiah(data.paid)} />
-          <Row label="Kembali" val={rupiah(data.change_amount)} />
-          <div className="my-4 border-t border-dashed border-black" />
-          <div className="text-center text-[12px]">
-            <div className="font-bold">Terima kasih!</div>
-            <div>Pesanan Anda sedang kami proses.</div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => window.print()}
+              className="btn-brand inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold"
+            >
+              <Printer className="h-4 w-4" /> Cetak
+            </button>
+            <button onClick={onClose} className="rounded-xl bg-secondary p-2" aria-label="Tutup">
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
 
-        <div className="flex gap-2 border-t border-border p-4 print:hidden">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-xl bg-secondary py-3 font-semibold text-[color:var(--brand-deep)]"
-          >
-            Tutup
-          </button>
-          <button
-            onClick={handlePrint}
-            className="btn-brand flex flex-1 items-center justify-center gap-2 rounded-xl py-3 font-semibold"
-          >
-            <Printer className="h-5 w-5" /> Cetak / PDF
-          </button>
+        <div
+          id="receipt-print-area"
+          className="mx-auto bg-white font-mono text-[11px] leading-tight text-black"
+          style={{ width: widthPx }}
+        >
+          <div className="text-center">
+            <img src={logoAsset.url} alt="Logo GEN-CB" className="mx-auto mb-1 h-12 w-12 object-contain" />
+            <div className="text-sm font-bold uppercase">{data.store?.store_name ?? "GEN-CB Kasir"}</div>
+            {data.store?.address && <div>{data.store.address}</div>}
+            {data.store?.phone && <div>{data.store.phone}</div>}
+          </div>
+
+          <Divider />
+          <Row left="No" right={data.transaction_number} />
+          <Row
+            left="Waktu"
+            right={new Date(data.created_at).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
+          />
+          <Row left="Kasir" right={data.cashier_name ?? "-"} />
+          {data.customer_name && <Row left="Pelanggan" right={data.customer_name} />}
+          <Row left="Tipe" right={data.order_type === "take_away" ? "Bawa Pulang" : "Makan di Tempat"} />
+          <div className="mt-1 text-center text-base font-bold">
+            ANTREAN #{String(data.queue_number).padStart(3, "0")}
+          </div>
+
+          <Divider />
+          {data.items.map((it, i) => (
+            <div key={i} className="mb-1">
+              <div className="font-bold">{it.name}</div>
+              <div className="flex justify-between">
+                <span>
+                  {it.quantity} x {rupiah(it.price)}
+                </span>
+                <span>{rupiah(it.subtotal)}</span>
+              </div>
+              {it.notes && <div className="italic">* {it.notes}</div>}
+            </div>
+          ))}
+
+          <Divider />
+          <Row left="Subtotal" right={rupiah(data.subtotal)} />
+          {data.discount > 0 && <Row left="Diskon" right={`-${rupiah(data.discount)}`} />}
+          <div className="flex justify-between text-sm font-bold">
+            <span>TOTAL</span>
+            <span>{rupiah(data.grand_total)}</span>
+          </div>
+          <Row left={METHOD_LABEL[data.payment_method] ?? data.payment_method} right={rupiah(data.amount_paid)} />
+          <Row left="Kembali" right={rupiah(data.change_amount)} />
+          {data.notes && (
+            <>
+              <Divider />
+              <div className="italic">Catatan: {data.notes}</div>
+            </>
+          )}
+
+          <Divider />
+          <div className="whitespace-pre-line text-center">
+            {data.store?.receipt_footer ?? "Terima kasih telah berbelanja."}
+          </div>
+          <div className="mt-1 text-center text-[10px]">Yayasan Generasi Cerdas Beraksi</div>
         </div>
       </div>
 
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          #receipt-print, #receipt-print * { visibility: visible; }
-          #receipt-print { position: absolute; left: 0; top: 0; width: 80mm; padding: 6mm; }
+          body * { visibility: hidden !important; }
+          #receipt-print-area, #receipt-print-area * { visibility: visible !important; }
+          #receipt-print-area { position: absolute; left: 0; top: 0; }
         }
       `}</style>
     </div>
   );
 }
 
-function Row({ label, val }: { label: string; val: string }) {
+function Divider() {
+  return <div className="my-1 border-t border-dashed border-black" />;
+}
+
+function Row({ left, right }: { left: string; right: string }) {
   return (
-    <div className="flex justify-between text-[12px]">
-      <span>{label}</span>
-      <span>{val}</span>
+    <div className="flex justify-between gap-2">
+      <span>{left}</span>
+      <span className="text-right">{right}</span>
     </div>
   );
 }
