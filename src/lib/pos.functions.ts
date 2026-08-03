@@ -1,29 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-
-type Role = "admin" | "kasir";
-
-async function requireStaff() {
-  const { getGateSession } = await import("@/lib/session.server");
-  const session = await getGateSession();
-  if (!session.data.staffId || !session.data.role) throw new Error("Belum login");
-  return { id: session.data.staffId, name: session.data.name ?? "", role: session.data.role as Role };
-}
-
-async function requireAdmin() {
-  const staff = await requireStaff();
-  if (staff.role !== "admin") throw new Error("Akses ditolak: hanya Admin");
-  return staff;
-}
-
-async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
-
-function today() {
-  return new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
-}
+import {
+  admin,
+  buildReceipt,
+  fetchPaidTransactions,
+  requireAdmin,
+  requireStaff,
+  signImages,
+  today,
+} from "@/lib/pos.server";
 
 /* ------------------------------- CATALOG ------------------------------- */
 
@@ -34,7 +19,7 @@ export const listCatalog = createServerFn({ method: "GET" }).handler(async () =>
     db.from("categories").select("*").eq("is_active", true).order("sort_order"),
     db.from("products").select("*").eq("is_active", true).order("name"),
   ]);
-  return { categories: cats.data ?? [], products: prods.data ?? [] };
+  return { categories: cats.data ?? [], products: await signImages(db, prods.data ?? []) };
 });
 
 /* ------------------------------ CHECKOUT ------------------------------- */
@@ -77,40 +62,6 @@ export const checkout = createServerFn({ method: "POST" })
     const receipt = await buildReceipt(out.transaction_id);
     return receipt;
   });
-
-async function buildReceipt(transactionId: string) {
-  const db = await admin();
-  const [{ data: txn }, { data: items }, { data: queue }, { data: settings }] = await Promise.all([
-    db.from("transactions").select("*").eq("id", transactionId).single(),
-    db.from("transaction_items").select("*").eq("transaction_id", transactionId),
-    db.from("queues").select("queue_number").eq("transaction_id", transactionId).maybeSingle(),
-    db.from("store_settings").select("store_name, address, phone, receipt_footer, receipt_paper").limit(1).maybeSingle(),
-  ]);
-  if (!txn) throw new Error("Transaksi tidak ditemukan");
-  return {
-    transaction_number: txn.transaction_number,
-    queue_number: queue?.queue_number ?? 0,
-    cashier_name: txn.cashier_name,
-    customer_name: txn.customer_name,
-    order_type: txn.order_type,
-    created_at: txn.created_at,
-    subtotal: Number(txn.subtotal),
-    discount: Number(txn.discount),
-    grand_total: Number(txn.grand_total),
-    amount_paid: Number(txn.amount_paid),
-    change_amount: Number(txn.change_amount),
-    payment_method: txn.payment_method,
-    notes: txn.notes,
-    items: (items ?? []).map((it) => ({
-      name: it.product_name_snapshot,
-      quantity: it.quantity,
-      price: Number(it.product_price_snapshot),
-      subtotal: Number(it.subtotal),
-      notes: it.notes,
-    })),
-    store: settings ?? null,
-  };
-}
 
 export const getReceipt = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ transaction_id: z.string().uuid() }).parse(d))
@@ -356,7 +307,7 @@ export const listStock = createServerFn({ method: "GET" }).handler(async () => {
     db.from("products").select("*").order("name"),
     db.from("categories").select("id, name").order("sort_order"),
   ]);
-  return { products: prods.data ?? [], categories: cats.data ?? [] };
+  return { products: await signImages(db, prods.data ?? []), categories: cats.data ?? [] };
 });
 
 export const changeStock = createServerFn({ method: "POST" })
@@ -416,21 +367,6 @@ const RangeSchema = z.object({
   cashier_id: z.string().uuid().optional().nullable(),
   payment_method: z.string().optional().nullable(),
 });
-
-async function fetchPaidTransactions(from: string, to: string) {
-  const db = await admin();
-  const { data } = await db
-    .from("transactions")
-    .select(
-      "id, created_at, cashier_id, cashier_name, payment_method, subtotal, discount, grand_total, refund_amount, transaction_items(product_name_snapshot, quantity, subtotal, product_id)",
-    )
-    .eq("transaction_status", "completed")
-    .eq("payment_status", "paid")
-    .gte("created_at", from)
-    .lte("created_at", to)
-    .order("created_at");
-  return data ?? [];
-}
 
 export const omzetReport = createServerFn({ method: "GET" })
   .inputValidator((d) => RangeSchema.parse(d))
