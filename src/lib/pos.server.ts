@@ -30,7 +30,9 @@ export function today(): string {
 
 /** Product images live in a private bucket; hand out short-lived signed URLs. */
 export async function signImages<T extends { image_url: string | null }>(db: Db, rows: T[]): Promise<T[]> {
-  const paths = rows.map((r) => r.image_url).filter((p): p is string => Boolean(p) && !p.startsWith("http"));
+  const paths = rows
+    .map((r) => r.image_url)
+    .filter((p): p is string => typeof p === "string" && p.length > 0 && !p.startsWith("http"));
   if (paths.length === 0) return rows;
   const { data } = await db.storage.from("product-images").createSignedUrls(paths, 60 * 60 * 6);
   const map = new Map<string, string>();
