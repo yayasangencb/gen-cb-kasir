@@ -620,34 +620,53 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function processImageSquareDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const reader = new FileReader();
+
+    // 1.2-second hard fallback timeout guarantee
+    const timer = setTimeout(() => {
+      resolve("");
+    }, 1200);
+
     reader.onload = (e) => {
+      const rawResult = (e.target?.result as string) || "";
       const img = new Image();
+
+      const finish = (res: string) => {
+        clearTimeout(timer);
+        resolve(res || rawResult);
+      };
+
       img.onload = () => {
         try {
           const canvas = document.createElement("canvas");
-          const size = Math.min(img.width, img.height);
+          const size = Math.min(img.width || 400, img.height || 400);
           canvas.width = 400;
           canvas.height = 400;
           const ctx = canvas.getContext("2d");
           if (!ctx) {
-            resolve(e.target?.result as string);
+            finish(rawResult);
             return;
           }
-          const sx = (img.width - size) / 2;
-          const sy = (img.height - size) / 2;
+          const sx = ((img.width || size) - size) / 2;
+          const sy = ((img.height || size) - size) / 2;
           ctx.drawImage(img, sx, sy, size, size, 0, 0, 400, 400);
           const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
-          resolve(dataUrl);
-        } catch (err) {
-          resolve(e.target?.result as string);
+          finish(dataUrl);
+        } catch {
+          finish(rawResult);
         }
       };
-      img.onerror = () => reject(new Error("Format berkas gambar tidak valid"));
-      img.src = e.target?.result as string;
+
+      img.onerror = () => finish(rawResult);
+      img.src = rawResult;
     };
-    reader.onerror = () => reject(new Error("Gagal membaca berkas"));
+
+    reader.onerror = () => {
+      clearTimeout(timer);
+      resolve("");
+    };
+
     reader.readAsDataURL(file);
   });
 }

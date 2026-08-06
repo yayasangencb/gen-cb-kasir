@@ -3,21 +3,31 @@ import { useState } from "react";
 
 export function ImageDropzone({
   imageUrl,
-  uploading,
+  uploading = false,
   onImageSelected,
   onUrlDropped,
   onImageRemoved,
   label = "Foto Produk (Maks. 10 MB)",
 }: {
   imageUrl: string | null;
-  uploading: boolean;
+  uploading?: boolean;
   onImageSelected: (file: File) => Promise<void> | void;
   onUrlDropped?: (url: string) => Promise<void> | void;
   onImageRemoved?: () => void;
   label?: string;
 }) {
   const [isDragging, setIsDragging] = useState(false);
+  const [internalLoading, setInternalLoading] = useState(false);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+
+  const isBusy = uploading || internalLoading;
+
+  const triggerBusy = () => {
+    setInternalLoading(true);
+    setTimeout(() => {
+      setInternalLoading(false);
+    }, 800);
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -35,6 +45,7 @@ export function ImageDropzone({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+    triggerBusy();
 
     // 1. Check if dropped item is a local File from disk
     const files = e.dataTransfer.files;
@@ -43,7 +54,11 @@ export function ImageDropzone({
       if (file.type.startsWith("image/")) {
         const url = URL.createObjectURL(file);
         setLocalPreview(url);
-        onImageSelected(file);
+        try {
+          await onImageSelected(file);
+        } catch (err) {
+          console.error("Drop file error:", err);
+        }
         return;
       }
     }
@@ -70,17 +85,26 @@ export function ImageDropzone({
     ) {
       setLocalPreview(droppedUrl);
       if (onUrlDropped) {
-        await onUrlDropped(droppedUrl);
+        try {
+          await onUrlDropped(droppedUrl);
+        } catch (err) {
+          console.error("Drop URL error:", err);
+        }
       }
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      triggerBusy();
       const url = URL.createObjectURL(file);
       setLocalPreview(url);
-      onImageSelected(file);
+      try {
+        await onImageSelected(file);
+      } catch (err) {
+        console.error("File selection error:", err);
+      }
       e.target.value = "";
     }
   };
@@ -91,7 +115,7 @@ export function ImageDropzone({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="block text-xs font-bold text-[color:var(--brand-deep)]">{label}</span>
-        {activeImage && !uploading && (
+        {activeImage && !isBusy && (
           <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
             <CheckCircle2 className="h-3.5 w-3.5" /> Foto Siap
           </span>
@@ -121,7 +145,7 @@ export function ImageDropzone({
             </div>
           )}
 
-          {uploading && (
+          {isBusy && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center text-white text-[11px] font-extrabold gap-1">
               <Loader2 className="h-6 w-6 animate-spin text-white" />
               <span>Memproses...</span>
@@ -149,15 +173,15 @@ export function ImageDropzone({
 
           <div className="flex flex-wrap gap-2 justify-center sm:justify-start pt-1">
             <label className="btn-brand cursor-pointer inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-extrabold shadow-xs transition active:scale-95">
-              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
-              {uploading ? "Mengunggah..." : activeImage ? "Ganti Foto" : "Pilih Foto / Kamera"}
+              {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+              {isBusy ? "Mengunggah..." : activeImage ? "Ganti Foto" : "Pilih Foto / Kamera"}
               <input
                 type="file"
                 accept="image/*"
                 capture="environment"
                 className="hidden"
                 onChange={handleFileChange}
-                disabled={uploading}
+                disabled={isBusy}
               />
             </label>
 
