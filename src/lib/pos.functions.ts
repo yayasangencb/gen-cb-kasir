@@ -231,13 +231,13 @@ export const uploadProductImage = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAdmin();
     const db = await admin();
-    const bytes = Uint8Array.from(atob(data.file_base64), (c) => c.charCodeAt(0));
+    const bytes = Buffer.from(data.file_base64, "base64");
     if (bytes.byteLength > 5 * 1024 * 1024) throw new Error("Ukuran foto melebihi 5 MB");
     const ext = data.content_type === "image/png" ? "png" : data.content_type === "image/webp" ? "webp" : "jpg";
     const path = `${crypto.randomUUID()}.${ext}`;
     const { error } = await db.storage.from("product-images").upload(path, bytes, {
       contentType: data.content_type,
-      upsert: false,
+      upsert: true,
     });
     if (error) throw new Error(error.message);
     return { path };

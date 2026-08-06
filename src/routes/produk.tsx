@@ -388,24 +388,36 @@ function ProdukPage() {
                 imageUrl={edit.image_url}
                 uploading={uploading}
                 onImageSelected={async (file) => {
-                  if (file.size > 5 * 1024 * 1024) {
-                    toast.error("Ukuran file foto maksimal 5 MB");
+                  if (file.size > 10 * 1024 * 1024) {
+                    toast.error("Ukuran berkas foto maksimal 10 MB");
                     return;
                   }
                   setUploading(true);
                   try {
-                    const base64 = await processImageSquareBase64(file);
-                    const mimeType =
-                      file.type === "image/png"
-                        ? "image/png"
-                        : file.type === "image/webp"
-                        ? "image/webp"
-                        : "image/jpeg";
-                    const res = await uploadImg({ data: { file_base64: base64, content_type: mimeType } });
-                    const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(res.path);
-                    setEdit((prev) => (prev ? { ...prev, image_url: pubData.publicUrl } : null));
+                    const blob = await processImageSquareBlob(file);
+                    const fileName = `${crypto.randomUUID()}.jpg`;
+
+                    // Try direct browser client upload to Supabase storage first
+                    const { data: uploadResult, error: uploadError } = await supabase.storage
+                      .from("product-images")
+                      .upload(fileName, blob, { contentType: "image/jpeg", upsert: true });
+
+                    let finalPath = uploadResult?.path || fileName;
+
+                    if (uploadError) {
+                      // Fallback to server function if client RLS or direct fetch is blocked
+                      const base64 = await blobToBase64(blob);
+                      const srvRes = await uploadImg({ data: { file_base64: base64, content_type: "image/jpeg" } });
+                      finalPath = srvRes.path;
+                    }
+
+                    const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(finalPath);
+                    const publicUrl = pubData.publicUrl;
+
+                    setEdit((prev) => (prev ? { ...prev, image_url: publicUrl } : null));
                     toast.success("Foto berhasil diunggah");
                   } catch (err) {
+                    console.error("Image upload error:", err);
                     toast.error(err instanceof Error ? err.message : "Gagal mengunggah foto");
                   } finally {
                     setUploading(false);
@@ -559,8 +571,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// Client-side image cropping to 1:1 aspect ratio square and base64 compression
-function processImageSquareBase64(file: File): Promise<string> {
+function processImageSquareBlob(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -568,8 +579,8 @@ function processImageSquareBase64(file: File): Promise<string> {
       img.onload = () => {
         const canvas = document.createElement("canvas");
         const size = Math.min(img.width, img.height);
-        canvas.width = 600;
-        canvas.height = 600;
+        canvas.width = 500;
+        canvas.height = 500;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           reject(new Error("Gagal memproses gambar"));
@@ -577,14 +588,32 @@ function processImageSquareBase64(file: File): Promise<string> {
         }
         const sx = (img.width - size) / 2;
         const sy = (img.height - size) / 2;
-        ctx.drawImage(img, sx, sy, size, size, 0, 0, 600, 600);
-        const dataUrl = canvas.toDataURL(file.type || "image/jpeg", 0.85);
-        resolve(dataUrl.split(",")[1]);
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, 500, 500);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("Gagal mengompres gambar"));
+          },
+          "image/jpeg",
+          0.8,
+        );
       };
       img.onerror = () => reject(new Error("Format berkas gambar tidak valid"));
       img.src = e.target?.result as string;
     };
     reader.onerror = () => reject(new Error("Gagal membaca berkas"));
     reader.readAsDataURL(file);
+  });
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const res = reader.result as string;
+      resolve(res.split(",")[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
 }
