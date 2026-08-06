@@ -395,33 +395,39 @@ function ProdukPage() {
                   setUploading(true);
 
                   try {
-                    // 1. Convert & compress image to 400x400 square JPEG data URL (~30KB)
+                    // 1. Instantly convert & compress image to 400x400 square JPEG data URL (~30KB)
                     const dataUrl = await processImageSquareDataUrl(file);
 
-                    // 2. Instantly attach dataUrl to state so image is immediately ready for save
+                    // 2. Instantly attach dataUrl to product state so image is immediately ready to save
                     setEdit((prev) => (prev ? { ...prev, image_url: dataUrl } : null));
-
-                    // 3. Try uploading to Supabase Storage bucket in background
-                    try {
-                      const fileName = `${crypto.randomUUID()}.jpg`;
-                      const base64Data = dataUrl.split(",")[1];
-                      const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-
-                      const { data: uploadResult, error: uploadError } = await supabase.storage
-                        .from("product-images")
-                        .upload(fileName, bytes, { contentType: "image/jpeg", upsert: true });
-
-                      if (!uploadError && uploadResult?.path) {
-                        const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(uploadResult.path);
-                        if (pubData?.publicUrl) {
-                          setEdit((prev) => (prev ? { ...prev, image_url: pubData.publicUrl } : null));
-                        }
-                      }
-                    } catch (storageErr) {
-                      console.warn("Storage upload optional upgrade skipped:", storageErr);
-                    }
-
                     toast.success("Foto produk siap disimpan!");
+
+                    // 3. Fire-and-forget background upload to Supabase Storage (non-blocking!)
+                    (async () => {
+                      try {
+                        const fileName = `${crypto.randomUUID()}.jpg`;
+                        const base64Data = dataUrl.split(",")[1];
+                        const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
+                        // 1.5s race timeout so storage call never hangs
+                        const timeout = new Promise((_, reject) =>
+                          setTimeout(() => reject(new Error("Timeout")), 1500),
+                        );
+                        const uploadPromise = supabase.storage
+                          .from("product-images")
+                          .upload(fileName, bytes, { contentType: "image/jpeg", upsert: true });
+
+                        const res: any = await Promise.race([uploadPromise, timeout]);
+                        if (res?.data?.path) {
+                          const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(res.data.path);
+                          if (pubData?.publicUrl) {
+                            setEdit((prev) => (prev ? { ...prev, image_url: pubData.publicUrl } : null));
+                          }
+                        }
+                      } catch {
+                        // Data URL is already active, no action needed
+                      }
+                    })();
                   } catch (err) {
                     console.error("Image upload error:", err);
                     toast.error("Gagal membaca berkas gambar");
