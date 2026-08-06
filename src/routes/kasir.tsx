@@ -5,7 +5,7 @@ import { Minus, Plus, Search, ShoppingBag, ShoppingCart, Trash2, User, Utensils 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { PaymentModal, type PaymentMethod } from "@/components/PaymentModal";
+import { PaymentModal, type PaymentMethod, type PaymentPayload } from "@/components/PaymentModal";
 import { ReceiptModal, type ReceiptData } from "@/components/ReceiptModal";
 import { getCurrentStaff } from "@/lib/auth.functions";
 import { rupiah } from "@/lib/format";
@@ -111,7 +111,7 @@ function KasirPage() {
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
   const total = subtotal;
 
-  const handlePay = async ({ paid, method }: { paid: number; method: PaymentMethod }) => {
+  const handlePay = async (payload: PaymentPayload) => {
     try {
       const res = await doCheckout({
         data: {
@@ -120,12 +120,12 @@ function KasirPage() {
             quantity: l.qty,
             notes: l.notes || undefined,
           })),
-          customer_name: customerName.trim() || undefined,
-          order_type: orderType,
-          discount: 0,
-          payment_method: method,
-          amount_paid: paid,
-          notes: orderNotes.trim() || undefined,
+          customer_name: payload.customer_name || customerName.trim() || undefined,
+          order_type: payload.order_type || orderType,
+          discount: payload.discount || 0,
+          payment_method: payload.payment_method,
+          amount_paid: payload.amount_paid,
+          notes: payload.notes || orderNotes.trim() || undefined,
         },
       });
 
@@ -404,7 +404,7 @@ function KasirPage() {
         </aside>
       </div>
 
-      {showPay && <PaymentModal total={total} onClose={() => setShowPay(false)} onSubmit={handlePay} />}
+      {showPay && <PaymentModal subtotal={total} total={total} onClose={() => setShowPay(false)} onSubmit={handlePay} />}
       {receipt && <ReceiptModal data={receipt} onClose={() => setReceipt(null)} />}
     </AppShell>
   );

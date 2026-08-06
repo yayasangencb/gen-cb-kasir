@@ -22,18 +22,22 @@ const METHODS: { key: PaymentMethod; label: string; icon: React.ComponentType<{ 
 ];
 
 function roundUp(n: number, step: number) {
+  if (n <= 0) return 0;
   return Math.ceil(n / step) * step;
 }
 
 export function PaymentModal({
-  subtotal,
+  subtotal: propSubtotal,
+  total: propTotal,
   onClose,
   onSubmit,
 }: {
-  subtotal: number;
+  subtotal?: number;
+  total?: number;
   onClose: () => void;
   onSubmit: (v: PaymentPayload) => Promise<void> | void;
 }) {
+  const subtotal = Math.max(0, Number(propSubtotal ?? propTotal ?? 0));
   const [method, setMethod] = useState<PaymentMethod>("tunai");
   const [discountStr, setDiscountStr] = useState("0");
   const [paidStr, setPaidStr] = useState("");
@@ -45,8 +49,11 @@ export function PaymentModal({
   const discount = Math.min(Number(discountStr) || 0, subtotal);
   const total = Math.max(0, subtotal - discount);
 
+  // Default paidStr when method changes or when initially opening
   useEffect(() => {
-    if (method !== "tunai") setPaidStr(String(total));
+    if (method !== "tunai" || !paidStr) {
+      setPaidStr(String(total));
+    }
   }, [method, total]);
 
   const paid = Number(paidStr) || 0;
@@ -62,14 +69,15 @@ export function PaymentModal({
     { label: "Rp200.000", val: 200000 },
   ];
 
-  const press = (n: string) => setPaidStr((p) => (p === "0" ? n : p + n));
+  const press = (n: string) => setPaidStr((p) => (p === "0" || !p ? n : p + n));
 
   const submit = async () => {
-    if (!enough || busy) return;
+    const finalPaid = paid <= 0 && enough ? total : paid;
+    if (finalPaid < total || busy) return;
     setBusy(true);
     try {
       await onSubmit({
-        amount_paid: paid,
+        amount_paid: finalPaid,
         payment_method: method,
         customer_name: customer.trim(),
         order_type: orderType,
@@ -108,7 +116,10 @@ export function PaymentModal({
                   return (
                     <button
                       key={m.key}
-                      onClick={() => setMethod(m.key)}
+                      onClick={() => {
+                        setMethod(m.key);
+                        setPaidStr(String(total));
+                      }}
                       className={`flex items-center gap-3 rounded-2xl border-2 p-4 text-left font-semibold transition ${
                         active
                           ? "border-[color:var(--brand)] bg-[color:var(--brand)]/5 text-[color:var(--brand-deep)]"
@@ -199,7 +210,7 @@ export function PaymentModal({
                     <button
                       key={q.label}
                       onClick={() => setPaidStr(String(q.val))}
-                      className="rounded-xl bg-secondary py-3 text-xs font-bold text-[color:var(--brand-deep)] hover:bg-[color:var(--brand)]/10"
+                      className="rounded-xl bg-secondary py-3 text-xs font-bold text-[color:var(--brand-deep)] hover:bg-[color:var(--brand)]/10 active:scale-95"
                     >
                       {q.label}
                     </button>
@@ -241,7 +252,7 @@ export function PaymentModal({
             <button
               onClick={submit}
               disabled={!enough || busy}
-              className="btn-orange mt-4 w-full rounded-2xl py-5 text-lg font-extrabold disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-orange mt-4 w-full rounded-2xl py-5 text-lg font-extrabold disabled:cursor-not-allowed disabled:opacity-50 transition active:scale-98"
             >
               {busy ? "Memproses..." : "Selesaikan Pembayaran"}
             </button>
