@@ -388,21 +388,20 @@ function ProdukPage() {
                 imageUrl={edit.image_url}
                 uploading={uploading}
                 onImageSelected={async (file) => {
-                  if (file.size > 10 * 1024 * 1024) {
-                    toast.error("Ukuran berkas foto maksimal 10 MB");
+                  if (file.size > 15 * 1024 * 1024) {
+                    toast.error("Ukuran berkas foto maksimal 15 MB");
                     return;
                   }
                   setUploading(true);
 
-                  const timeoutId = setTimeout(() => {
-                    setUploading(false);
-                  }, 5000);
-
                   try {
+                    // 1. Convert & compress image to 400x400 square JPEG data URL (~30KB)
                     const dataUrl = await processImageSquareDataUrl(file);
-                    let finalUrl = dataUrl;
 
-                    // Try uploading to Supabase Storage if bucket exists
+                    // 2. Instantly attach dataUrl to state so image is immediately ready for save
+                    setEdit((prev) => (prev ? { ...prev, image_url: dataUrl } : null));
+
+                    // 3. Try uploading to Supabase Storage bucket in background
                     try {
                       const fileName = `${crypto.randomUUID()}.jpg`;
                       const base64Data = dataUrl.split(",")[1];
@@ -415,20 +414,18 @@ function ProdukPage() {
                       if (!uploadError && uploadResult?.path) {
                         const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(uploadResult.path);
                         if (pubData?.publicUrl) {
-                          finalUrl = pubData.publicUrl;
+                          setEdit((prev) => (prev ? { ...prev, image_url: pubData.publicUrl } : null));
                         }
                       }
                     } catch (storageErr) {
-                      console.warn("Storage upload warning, using compressed data URL fallback:", storageErr);
+                      console.warn("Storage upload optional upgrade skipped:", storageErr);
                     }
 
-                    setEdit((prev) => (prev ? { ...prev, image_url: finalUrl } : null));
-                    toast.success("Foto produk berhasil diproses");
+                    toast.success("Foto produk siap disimpan!");
                   } catch (err) {
                     console.error("Image upload error:", err);
-                    toast.error(err instanceof Error ? err.message : "Gagal mengunggah foto");
+                    toast.error("Gagal membaca berkas gambar");
                   } finally {
-                    clearTimeout(timeoutId);
                     setUploading(false);
                   }
                 }}
