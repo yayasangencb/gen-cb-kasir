@@ -393,33 +393,42 @@ function ProdukPage() {
                     return;
                   }
                   setUploading(true);
+
+                  const timeoutId = setTimeout(() => {
+                    setUploading(false);
+                  }, 5000);
+
                   try {
-                    const blob = await processImageSquareBlob(file);
-                    const fileName = `${crypto.randomUUID()}.jpg`;
+                    const dataUrl = await processImageSquareDataUrl(file);
+                    let finalUrl = dataUrl;
 
-                    // Try direct browser client upload to Supabase storage first
-                    const { data: uploadResult, error: uploadError } = await supabase.storage
-                      .from("product-images")
-                      .upload(fileName, blob, { contentType: "image/jpeg", upsert: true });
+                    // Try uploading to Supabase Storage if bucket exists
+                    try {
+                      const fileName = `${crypto.randomUUID()}.jpg`;
+                      const base64Data = dataUrl.split(",")[1];
+                      const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
-                    let finalPath = uploadResult?.path || fileName;
+                      const { data: uploadResult, error: uploadError } = await supabase.storage
+                        .from("product-images")
+                        .upload(fileName, bytes, { contentType: "image/jpeg", upsert: true });
 
-                    if (uploadError) {
-                      // Fallback to server function if client RLS or direct fetch is blocked
-                      const base64 = await blobToBase64(blob);
-                      const srvRes = await uploadImg({ data: { file_base64: base64, content_type: "image/jpeg" } });
-                      finalPath = srvRes.path;
+                      if (!uploadError && uploadResult?.path) {
+                        const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(uploadResult.path);
+                        if (pubData?.publicUrl) {
+                          finalUrl = pubData.publicUrl;
+                        }
+                      }
+                    } catch (storageErr) {
+                      console.warn("Storage upload warning, using compressed data URL fallback:", storageErr);
                     }
 
-                    const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(finalPath);
-                    const publicUrl = pubData.publicUrl;
-
-                    setEdit((prev) => (prev ? { ...prev, image_url: publicUrl } : null));
-                    toast.success("Foto berhasil diunggah");
+                    setEdit((prev) => (prev ? { ...prev, image_url: finalUrl } : null));
+                    toast.success("Foto produk berhasil diproses");
                   } catch (err) {
                     console.error("Image upload error:", err);
                     toast.error(err instanceof Error ? err.message : "Gagal mengunggah foto");
                   } finally {
+                    clearTimeout(timeoutId);
                     setUploading(false);
                   }
                 }}
@@ -571,49 +580,35 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function processImageSquareBlob(file: File): Promise<Blob> {
+function processImageSquareDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const size = Math.min(img.width, img.height);
-        canvas.width = 500;
-        canvas.height = 500;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("Gagal memproses gambar"));
-          return;
+        try {
+          const canvas = document.createElement("canvas");
+          const size = Math.min(img.width, img.height);
+          canvas.width = 400;
+          canvas.height = 400;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+          const sx = (img.width - size) / 2;
+          const sy = (img.height - size) / 2;
+          ctx.drawImage(img, sx, sy, size, size, 0, 0, 400, 400);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+          resolve(dataUrl);
+        } catch (err) {
+          resolve(e.target?.result as string);
         }
-        const sx = (img.width - size) / 2;
-        const sy = (img.height - size) / 2;
-        ctx.drawImage(img, sx, sy, size, size, 0, 0, 500, 500);
-        canvas.toBlob(
-          (blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error("Gagal mengompres gambar"));
-          },
-          "image/jpeg",
-          0.8,
-        );
       };
       img.onerror = () => reject(new Error("Format berkas gambar tidak valid"));
       img.src = e.target?.result as string;
     };
     reader.onerror = () => reject(new Error("Gagal membaca berkas"));
     reader.readAsDataURL(file);
-  });
-}
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const res = reader.result as string;
-      resolve(res.split(",")[1]);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
   });
 }
