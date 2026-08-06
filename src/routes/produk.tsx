@@ -5,6 +5,7 @@ import { Camera, Image, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-r
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { ImageDropzone } from "@/components/ImageDropzone";
 import { getCurrentStaff } from "@/lib/auth.functions";
 import { rupiah } from "@/lib/format";
 import {
@@ -383,47 +384,35 @@ function ProdukPage() {
               </button>
             </div>
 
-            {/* Photo Upload Section */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 rounded-2xl bg-secondary/60 p-4 border border-border/60">
-              <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-white border-2 border-dashed border-border flex items-center justify-center">
-                {edit.image_url ? (
-                  <img src={edit.image_url} alt="Preview" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="text-center p-2 text-muted-foreground">
-                    <Camera className="mx-auto h-7 w-7 opacity-40" />
-                    <span className="text-[10px] font-bold block mt-1">Rasio 1:1</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2 text-center sm:text-left">
-                <div className="text-xs font-bold text-[color:var(--brand-deep)]">Foto Produk (Maks. 5 MB)</div>
-                <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                  <label className="btn-brand cursor-pointer inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-extrabold shadow-xs">
-                    <Upload className="h-3.5 w-3.5" />
-                    {uploading ? "Mengunggah..." : "Pilih Foto / Kamera"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="hidden"
-                      onChange={handleFileChange}
-                      disabled={uploading}
-                    />
-                  </label>
-
-                  {edit.image_url && (
-                    <button
-                      type="button"
-                      onClick={handleRemovePhoto}
-                      className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-red-600 ring-1 ring-border hover:bg-red-50"
-                    >
-                      Hapus Foto
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+              <ImageDropzone
+                imageUrl={edit.image_url}
+                uploading={uploading}
+                onImageSelected={async (file) => {
+                  if (file.size > 5 * 1024 * 1024) {
+                    toast.error("Ukuran file foto maksimal 5 MB");
+                    return;
+                  }
+                  setUploading(true);
+                  try {
+                    const base64 = await processImageSquareBase64(file);
+                    const mimeType =
+                      file.type === "image/png"
+                        ? "image/png"
+                        : file.type === "image/webp"
+                        ? "image/webp"
+                        : "image/jpeg";
+                    const res = await uploadImg({ data: { file_base64: base64, content_type: mimeType } });
+                    const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(res.path);
+                    setEdit((prev) => (prev ? { ...prev, image_url: pubData.publicUrl } : null));
+                    toast.success("Foto berhasil diunggah");
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Gagal mengunggah foto");
+                  } finally {
+                    setUploading(false);
+                  }
+                }}
+                onImageRemoved={handleRemovePhoto}
+              />
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Nama Produk *">
