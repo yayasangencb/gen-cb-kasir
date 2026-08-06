@@ -212,20 +212,26 @@ function KasirPage() {
                     >
                       {/* Image / Fallback Icon */}
                       <div className="relative mb-3 h-28 w-full overflow-hidden rounded-2xl bg-secondary/80 flex items-center justify-center">
-                        {p.image_url ? (
+                        {p.image_url && (
                           <img
                             src={p.image_url}
                             alt={p.name}
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                              const fallback = (e.target as HTMLElement).nextElementSibling;
+                              if (fallback) fallback.classList.remove("hidden");
+                            }}
                             className="h-full w-full object-cover transition-transform group-hover:scale-105"
                           />
-                        ) : (
-                          <div
-                            className="grid h-full w-full place-items-center text-3xl font-black text-white"
-                            style={{ background: "linear-gradient(135deg,#002B7F,#00A3FF)" }}
-                          >
-                            {p.name.charAt(0).toUpperCase()}
-                          </div>
                         )}
+                        <div
+                          className={`grid h-full w-full place-items-center text-3xl font-black text-white ${
+                            p.image_url ? "hidden" : ""
+                          }`}
+                          style={{ background: "linear-gradient(135deg,#002B7F,#00A3FF)" }}
+                        >
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
                         {outOfStock && (
                           <div className="absolute inset-0 grid place-items-center bg-black/60 backdrop-blur-xs text-white font-extrabold text-xs uppercase tracking-wider">
                             Habis

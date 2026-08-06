@@ -359,25 +359,22 @@ function ProdukPage() {
 
               <ImageDropzone
                 imageUrl={edit.image_url}
-                onImageSelected={(file) => {
+                onImageSelected={async (file) => {
                   if (file.size > 15 * 1024 * 1024) {
                     toast.error("Ukuran berkas foto maksimal 15 MB");
                     return;
                   }
-                  // 1. Instant 0ms attachment to parent state
-                  const localUrl = URL.createObjectURL(file);
-                  setEdit((prev) => (prev ? { ...prev, image_url: localUrl } : null));
-                  toast.success("Foto terpasang! Klik 'Simpan Produk'.");
-
-                  // 2. Compress to 400x400 square JPEG dataUrl in background
-                  (async () => {
-                    try {
-                      const dataUrl = await processImageSquareDataUrl(file);
-                      if (dataUrl) {
-                        setEdit((prev) => (prev ? { ...prev, image_url: dataUrl } : null));
-                      }
-                    } catch {}
-                  })();
+                  try {
+                    // Convert file to permanent 400x400 JPEG Data URL (~30KB)
+                    const dataUrl = await processImageSquareDataUrl(file);
+                    if (dataUrl) {
+                      setEdit((prev) => (prev ? { ...prev, image_url: dataUrl } : null));
+                      toast.success("Foto terpasang! Klik 'Simpan Produk'.");
+                    }
+                  } catch (err) {
+                    console.error("Image process error:", err);
+                    toast.error("Gagal membaca foto produk");
+                  }
                 }}
                 onUrlDropped={(url) => {
                   setEdit((prev) => (prev ? { ...prev, image_url: url } : null));
