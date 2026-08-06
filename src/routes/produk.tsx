@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, Image, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -71,8 +71,8 @@ function ProdukPage() {
   const fetchCatalog = useServerFn(listCatalog);
   const saveProduct = useServerFn(upsertProduct);
   const removeProduct = useServerFn(deleteProduct);
-  const uploadImg = useServerFn(uploadProductImage);
   const removeImg = useServerFn(removeProductImage);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-catalog"],
@@ -94,35 +94,6 @@ function ProdukPage() {
       return true;
     });
   }, [data, q, catFilter]);
-
-  // Handle Photo File Selection / Camera Capture
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !edit) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Ukuran file foto maksimal 5 MB");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      // Compress and crop square client-side canvas
-      const base64 = await processImageSquareBase64(file);
-      const mimeType = file.type === "image/png" ? "image/png" : file.type === "image/webp" ? "image/webp" : "image/jpeg";
-
-      const res = await uploadImg({ data: { file_base64: base64, content_type: mimeType } });
-
-      // Get public URL from Supabase storage
-      const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(res.path);
-      setEdit({ ...edit, image_url: pubData.publicUrl });
-      toast.success("Foto berhasil diunggah");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal mengunggah foto");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleRemovePhoto = async () => {
     if (!edit?.image_url) return;
@@ -165,6 +136,8 @@ function ProdukPage() {
       });
       toast.success(edit.id ? "Produk diperbarui" : "Produk baru ditambahkan");
       setEdit(null);
+      await queryClient.invalidateQueries({ queryKey: ["admin-catalog"] });
+      await queryClient.invalidateQueries({ queryKey: ["catalog"] });
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan produk");
@@ -386,90 +359,29 @@ function ProdukPage() {
 
               <ImageDropzone
                 imageUrl={edit.image_url}
-                uploading={uploading}
-                onImageSelected={async (file) => {
+                onImageSelected={(file) => {
                   if (file.size > 15 * 1024 * 1024) {
                     toast.error("Ukuran berkas foto maksimal 15 MB");
                     return;
                   }
-                  setUploading(true);
+                  // 1. Instant 0ms attachment to parent state
+                  const localUrl = URL.createObjectURL(file);
+                  setEdit((prev) => (prev ? { ...prev, image_url: localUrl } : null));
+                  toast.success("Foto terpasang! Klik 'Simpan Produk'.");
 
-                  try {
-                    // 1. Instantly convert & compress image to 400x400 square JPEG data URL (~30KB)
-                    const dataUrl = await processImageSquareDataUrl(file);
-
-                    // 2. Instantly attach dataUrl to product state so image is immediately ready to save
-                    setEdit((prev) => (prev ? { ...prev, image_url: dataUrl } : null));
-                    toast.success("Foto produk siap disimpan!");
-
-                    // 3. Fire-and-forget background upload to Supabase Storage (non-blocking!)
-                    (async () => {
-                      try {
-                        const fileName = `${crypto.randomUUID()}.jpg`;
-                        const base64Data = dataUrl.split(",")[1];
-                        const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-
-                        // 1.5s race timeout so storage call never hangs
-                        const timeout = new Promise((_, reject) =>
-                          setTimeout(() => reject(new Error("Timeout")), 1500),
-                        );
-                        const uploadPromise = supabase.storage
-                          .from("product-images")
-                          .upload(fileName, bytes, { contentType: "image/jpeg", upsert: true });
-
-                        const res: any = await Promise.race([uploadPromise, timeout]);
-                        if (res?.data?.path) {
-                          const { data: pubData } = supabase.storage.from("product-images").getPublicUrl(res.data.path);
-                          if (pubData?.publicUrl) {
-                            setEdit((prev) => (prev ? { ...prev, image_url: pubData.publicUrl } : null));
-                          }
-                        }
-                      } catch {
-                        // Data URL is already active, no action needed
-                      }
-                    })();
-                  } catch (err) {
-                    console.error("Image upload error:", err);
-                    toast.error("Gagal membaca berkas gambar");
-                  } finally {
-                    setUploading(false);
-                  }
-                }}
-                onUrlDropped={async (url) => {
-                  setUploading(true);
-                  try {
-                    setEdit((prev) => (prev ? { ...prev, image_url: url } : null));
-                    toast.success("Foto dari halaman web berhasil dipasang!");
-
-                    // Try converting remote image to cropped 1:1 canvas JPEG if CORS allows
+                  // 2. Compress to 400x400 square JPEG dataUrl in background
+                  (async () => {
                     try {
-                      const img = new Image();
-                      img.crossOrigin = "anonymous";
-                      img.onload = () => {
-                        try {
-                          const canvas = document.createElement("canvas");
-                          const size = Math.min(img.width, img.height);
-                          canvas.width = 400;
-                          canvas.height = 400;
-                          const ctx = canvas.getContext("2d");
-                          if (ctx) {
-                            const sx = (img.width - size) / 2;
-                            const sy = (img.height - size) / 2;
-                            ctx.drawImage(img, sx, sy, size, size, 0, 0, 400, 400);
-                            const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.75);
-                            setEdit((prev) => (prev ? { ...prev, image_url: croppedDataUrl } : null));
-                          }
-                        } catch {
-                          // Keep original remote URL if CORS blocks canvas export
-                        }
-                      };
-                      img.src = url;
-                    } catch {
-                      // Keep original remote URL
-                    }
-                  } finally {
-                    setUploading(false);
-                  }
+                      const dataUrl = await processImageSquareDataUrl(file);
+                      if (dataUrl) {
+                        setEdit((prev) => (prev ? { ...prev, image_url: dataUrl } : null));
+                      }
+                    } catch {}
+                  })();
+                }}
+                onUrlDropped={(url) => {
+                  setEdit((prev) => (prev ? { ...prev, image_url: url } : null));
+                  toast.success("Foto dari tab web terpasang! Klik 'Simpan Produk'.");
                 }}
                 onImageRemoved={handleRemovePhoto}
               />
