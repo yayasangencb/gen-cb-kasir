@@ -435,6 +435,42 @@ function ProdukPage() {
                     setUploading(false);
                   }
                 }}
+                onUrlDropped={async (url) => {
+                  setUploading(true);
+                  try {
+                    setEdit((prev) => (prev ? { ...prev, image_url: url } : null));
+                    toast.success("Foto dari halaman web berhasil dipasang!");
+
+                    // Try converting remote image to cropped 1:1 canvas JPEG if CORS allows
+                    try {
+                      const img = new Image();
+                      img.crossOrigin = "anonymous";
+                      img.onload = () => {
+                        try {
+                          const canvas = document.createElement("canvas");
+                          const size = Math.min(img.width, img.height);
+                          canvas.width = 400;
+                          canvas.height = 400;
+                          const ctx = canvas.getContext("2d");
+                          if (ctx) {
+                            const sx = (img.width - size) / 2;
+                            const sy = (img.height - size) / 2;
+                            ctx.drawImage(img, sx, sy, size, size, 0, 0, 400, 400);
+                            const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.75);
+                            setEdit((prev) => (prev ? { ...prev, image_url: croppedDataUrl } : null));
+                          }
+                        } catch {
+                          // Keep original remote URL if CORS blocks canvas export
+                        }
+                      };
+                      img.src = url;
+                    } catch {
+                      // Keep original remote URL
+                    }
+                  } finally {
+                    setUploading(false);
+                  }
+                }}
                 onImageRemoved={handleRemovePhoto}
               />
 

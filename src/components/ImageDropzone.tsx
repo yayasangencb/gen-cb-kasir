@@ -5,12 +5,14 @@ export function ImageDropzone({
   imageUrl,
   uploading,
   onImageSelected,
+  onUrlDropped,
   onImageRemoved,
   label = "Foto Produk (Maks. 10 MB)",
 }: {
   imageUrl: string | null;
   uploading: boolean;
   onImageSelected: (file: File) => Promise<void> | void;
+  onUrlDropped?: (url: string) => Promise<void> | void;
   onImageRemoved?: () => void;
   label?: string;
 }) {
@@ -29,16 +31,46 @@ export function ImageDropzone({
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
 
+    // 1. Check if dropped item is a local File from disk
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       const file = files[0];
       if (file.type.startsWith("image/")) {
-        processLocalPreviewAndSelect(file);
+        const url = URL.createObjectURL(file);
+        setLocalPreview(url);
+        onImageSelected(file);
+        return;
+      }
+    }
+
+    // 2. Check if dropped item is an Image / Link dragged from another website or tab!
+    let droppedUrl =
+      e.dataTransfer.getData("URL") ||
+      e.dataTransfer.getData("text/uri-list") ||
+      e.dataTransfer.getData("text/plain");
+
+    if (!droppedUrl) {
+      const html = e.dataTransfer.getData("text/html");
+      if (html) {
+        const match = html.match(/src=["'](https?:\/\/[^"']+|data:image\/[^"']+)["']/i);
+        if (match && match[1]) droppedUrl = match[1];
+      }
+    }
+
+    if (
+      droppedUrl &&
+      (droppedUrl.startsWith("http://") ||
+        droppedUrl.startsWith("https://") ||
+        droppedUrl.startsWith("data:image/"))
+    ) {
+      setLocalPreview(droppedUrl);
+      if (onUrlDropped) {
+        await onUrlDropped(droppedUrl);
       }
     }
   };
@@ -46,15 +78,11 @@ export function ImageDropzone({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      processLocalPreviewAndSelect(file);
+      const url = URL.createObjectURL(file);
+      setLocalPreview(url);
+      onImageSelected(file);
       e.target.value = "";
     }
-  };
-
-  const processLocalPreviewAndSelect = (file: File) => {
-    const url = URL.createObjectURL(file);
-    setLocalPreview(url);
-    onImageSelected(file);
   };
 
   const activeImage = imageUrl || localPreview;
@@ -105,13 +133,13 @@ export function ImageDropzone({
         <div className="flex-1 space-y-2 text-center sm:text-left">
           {isDragging ? (
             <div className="text-sm font-black text-[color:var(--brand)] animate-pulse">
-              Lepaskan gambar di sini untuk mengunggah...
+              Lepaskan gambar di sini (File / Dari Tab Lain)...
             </div>
           ) : (
             <>
               <div className="flex items-center justify-center sm:justify-start gap-2 text-xs font-bold text-foreground">
                 <UploadCloud className="h-4 w-4 text-[color:var(--brand)]" />
-                <span>Tarik & Lepas (Drag & Drop) Foto ke Sini</span>
+                <span>Tarik & Lepas Foto (File Komputer / Tab Web Lain)</span>
               </div>
               <p className="text-[11px] text-muted-foreground font-medium">
                 Atau klik tombol di bawah untuk memilih gambar dari perangkat/kamera.
