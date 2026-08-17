@@ -97,6 +97,10 @@ function SuperAdminPage() {
 
   const handleSuperAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast.error("Email dan password wajib diisi");
+      return;
+    }
     setLoginBusy(true);
     try {
       const res = await doLoginSuperAdmin({ data: { email, password } });
@@ -104,10 +108,18 @@ function SuperAdminPage() {
         toast.success("Login Super Admin Berhasil!");
         window.location.reload();
       } else {
-        toast.error(res.error || "Login gagal");
+        toast.error(res.error || "Login gagal: Email atau password tidak sesuai");
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal login Super Admin");
+    } catch (err: any) {
+      let msg = "Gagal login Super Admin";
+      if (typeof err?.message === "string") {
+        if (err.message.includes("6 character")) {
+          msg = "Password Super Admin minimal 6 karakter";
+        } else {
+          msg = err.message;
+        }
+      }
+      toast.error(msg);
     } finally {
       setLoginBusy(false);
     }

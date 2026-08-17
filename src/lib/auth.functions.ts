@@ -5,8 +5,8 @@ export const loginSuperAdmin = createServerFn({ method: "POST" })
   .inputValidator((data) =>
     z
       .object({
-        email: z.string().email(),
-        password: z.string().min(6),
+        email: z.string().min(1, "Email tidak boleh kosong"),
+        password: z.string().min(1, "Password tidak boleh kosong"),
       })
       .parse(data),
   )
@@ -14,23 +14,39 @@ export const loginSuperAdmin = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getGateSession } = await import("@/lib/session.server");
 
-    // Authenticate via Supabase Auth
+    const emailInput = data.email.trim().toLowerCase();
+    const passInput = data.password.trim();
+
+    if (passInput.length < 6 && passInput !== "Generasicerdasberaksi_") {
+      return { ok: false as const, error: "Password Super Admin minimal 6 karakter" };
+    }
+
+    const isSuperAdminEmail = emailInput === "yayasangencb@gmail.com";
+    const isSuperAdminPass = passInput === "Generasicerdasberaksi_" || passInput === "generasicerdasberaksi_";
+
+    // 1. Direct credentials match for yayasangencb@gmail.com / Generasicerdasberaksi_
+    if (isSuperAdminEmail && isSuperAdminPass) {
+      const session = await getGateSession();
+      await session.update({
+        staffId: "super_admin_id",
+        name: "Super Admin (Gen CB)",
+        role: "super_admin",
+        isSuperAdmin: true,
+      });
+      return { ok: true as const, redirect: "/admin" };
+    }
+
+    // 2. Authenticate via Supabase Auth
     const { data: authData, error } = await supabaseAdmin.auth.signInWithPassword({
-      email: data.email.trim(),
+      email: emailInput,
       password: data.password,
     });
 
-    // Accept yayasangencb@gmail.com / Generasicerdasberaksi_ or valid super_admin role
-    const isSuperAdminEmail = data.email.trim().toLowerCase() === "yayasangencb@gmail.com";
-    if (error && !isSuperAdminEmail) {
-      return { ok: false as const, error: "Email atau password Super Admin salah" };
-    }
-
-    if (isSuperAdminEmail && data.password === "Generasicerdasberaksi_") {
+    if (isSuperAdminEmail && (isSuperAdminPass || !error)) {
       const session = await getGateSession();
       await session.update({
         staffId: authData?.user?.id || "super_admin_id",
-        name: "Super Admin (Gen CB)",
+        name: authData?.user?.user_metadata?.full_name || "Super Admin (Gen CB)",
         role: "super_admin",
         isSuperAdmin: true,
       });
@@ -56,11 +72,11 @@ export const loginSuperAdmin = createServerFn({ method: "POST" })
       }
     }
 
-    return { ok: false as const, error: "Akun ini bukan Super Admin" };
+    return { ok: false as const, error: "Email atau password Super Admin tidak sesuai" };
   });
 
 export const loginWithPin = createServerFn({ method: "POST" })
-  .inputValidator((data) => z.object({ pin: z.string().min(4).max(10), tenant_slug: z.string().optional() }).parse(data))
+  .inputValidator((data) => z.object({ pin: z.string().min(1), tenant_slug: z.string().optional() }).parse(data))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getGateSession } = await import("@/lib/session.server");
@@ -196,7 +212,7 @@ export const getCurrentStaff = createServerFn({ method: "GET" }).handler(async (
 
 /** Unlock Display with PIN */
 export const unlockDisplay = createServerFn({ method: "POST" })
-  .inputValidator((data) => z.object({ pin: z.string().min(4).max(10) }).parse(data))
+  .inputValidator((data) => z.object({ pin: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getGateSession } = await import("@/lib/session.server");
