@@ -1,26 +1,60 @@
 /** Server-only helpers for POS server functions (never imported by components). */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { getGateSession } from "@/lib/session.server";
+import { getGateSession, TenantRole } from "@/lib/session.server";
 
 export type Role = "admin" | "kasir";
 type Db = SupabaseClient<Database>;
 
-export async function requireStaff() {
-  const session = await getGateSession();
-  if (!session.data.staffId || !session.data.role) throw new Error("Belum login");
-  return { id: session.data.staffId, name: session.data.name ?? "", role: session.data.role as Role };
-}
-
-export async function requireAdmin() {
-  const staff = await requireStaff();
-  if (staff.role !== "admin") throw new Error("Akses ditolak: hanya Admin");
-  return staff;
-}
-
 export async function admin(): Promise<Db> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as unknown as Db;
+}
+
+export async function requireSuperAdminSession() {
+  const session = await getGateSession();
+  if (!session.data.isSuperAdmin) {
+    throw new Error("Akses ditolak: Hanya Super Admin GEN-CB");
+  }
+  return { email: "yayasangencb@gmail.com", name: session.data.name || "Super Admin GEN-CB" };
+}
+
+export async function requireTenantSession() {
+  const session = await getGateSession();
+  if (!session.data.tenantId || !session.data.tenantRole) {
+    throw new Error("Sesi login UKM Anda telah berakhir. Silakan login kembali dengan Kode Tenant & PIN.");
+  }
+
+  // Check tenant status in DB
+  const db = await admin();
+  const { data: tenant } = await db
+    .from("tenants")
+    .select("id, tenant_code, business_name, status, expired_at, is_deleted, primary_color, accent_color, qris_image_url")
+    .eq("id", session.data.tenantId)
+    .eq("is_deleted", false)
+    .maybeSingle();
+
+  if (!tenant || tenant.status !== "active" || new Date(tenant.expired_at) < new Date()) {
+    throw new Error("Masa aktif langganan UKM Anda telah berakhir. Silakan hubungi Super Admin GEN-CB untuk memperpanjang.");
+  }
+
+  return {
+    tenantId: tenant.id,
+    tenantCode: tenant.tenant_code,
+    businessName: tenant.business_name,
+    role: session.data.tenantRole as TenantRole,
+    staffId: session.data.staffId || tenant.id,
+    name: session.data.name || tenant.business_name,
+    tenant,
+  };
+}
+
+export async function requireTenantAdminSession() {
+  const s = await requireTenantSession();
+  if (s.role !== "tenant_admin") {
+    throw new Error("Akses ditolak: Hanya Admin / Pemilik UKM yang dapat mengakses menu ini.");
+  }
+  return s;
 }
 
 /** Current date in Asia/Jakarta (UTC+7) as YYYY-MM-DD. */
@@ -28,11 +62,31 @@ export function today(): string {
   return new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 }
 
+/** Generate a 6-digit random numeric PIN string */
+export function generateRandomPin(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+/** Audit log helper for Super Admin actions */
+export async function logAuditEvent(actorEmail: string, action: string, tenantId?: string, metadata: Record<string, any> = {}) {
+  try {
+    const db = await admin();
+    await db.from("audit_logs").insert({
+      actor_email: actorEmail,
+      action,
+      tenant_id: tenantId || null,
+      metadata,
+    });
+  } catch (err) {
+    console.error("Audit log error:", err);
+  }
+}
+
 /** Product images live in a private bucket; hand out short-lived signed URLs. */
 export async function signImages<T extends { image_url: string | null }>(db: Db, rows: T[]): Promise<T[]> {
   const paths = rows
     .map((r) => r.image_url)
-    .filter((p): p is string => typeof p === "string" && p.length > 0 && !p.startsWith("http"));
+    .filter((p): p is string => typeof p === "string" && p.length > 0 && !p.startsWith("http") && !p.startsWith("data:"));
   if (paths.length === 0) return rows;
   const { data } = await db.storage.from("product-images").createSignedUrls(paths, 60 * 60 * 6);
   const map = new Map<string, string>();
@@ -44,15 +98,11 @@ export async function signImages<T extends { image_url: string | null }>(db: Db,
 
 export async function buildReceipt(transactionId: string) {
   const db = await admin();
-  const [{ data: txn }, { data: items }, { data: queue }, { data: settings }] = await Promise.all([
+  const [{ data: txn }, { data: items }, { data: queue }, { data: tenant }] = await Promise.all([
     db.from("transactions").select("*").eq("id", transactionId).single(),
     db.from("transaction_items").select("*").eq("transaction_id", transactionId),
     db.from("queues").select("queue_number").eq("transaction_id", transactionId).maybeSingle(),
-    db
-      .from("store_settings")
-      .select("store_name, address, phone, receipt_footer, receipt_paper, logo_url")
-      .limit(1)
-      .maybeSingle(),
+    db.from("tenants").select("business_name, address, phone, logo_url").single(),
   ]);
   if (!txn) throw new Error("Transaksi tidak ditemukan");
   return {
@@ -77,19 +127,27 @@ export async function buildReceipt(transactionId: string) {
       subtotal: Number(it.subtotal),
       notes: it.notes,
     })),
-    store: settings ?? null,
+    store: {
+      store_name: tenant?.business_name || "Gen CB Kasir",
+      address: tenant?.address || "",
+      phone: tenant?.phone || "",
+      receipt_footer: "Terima kasih telah berbelanja. Silakan menunggu nomor antrean Anda.",
+      receipt_paper: "80mm",
+      logo_url: tenant?.logo_url || null,
+    },
   };
 }
 
 export type Receipt = Awaited<ReturnType<typeof buildReceipt>>;
 
-export async function fetchPaidTransactions(from: string, to: string) {
+export async function fetchPaidTransactions(tenantId: string, from: string, to: string) {
   const db = await admin();
   const { data } = await db
     .from("transactions")
     .select(
       "id, created_at, cashier_id, cashier_name, payment_method, subtotal, discount, grand_total, refund_amount, transaction_items(product_name_snapshot, quantity, subtotal, product_id)",
     )
+    .eq("tenant_id", tenantId)
     .eq("transaction_status", "completed")
     .eq("payment_status", "paid")
     .gte("created_at", from)

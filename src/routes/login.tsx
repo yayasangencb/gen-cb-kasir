@@ -1,151 +1,177 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Delete, Lock } from "lucide-react";
+import { AlertCircle, KeyRound, LogIn, Store } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { loginWithPin } from "@/lib/auth.functions";
-import logoAsset from "@/assets/gen-cb-logo.png.asset.json";
+import { loginTenantWithPin } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/login")({
-  component: LoginPage,
-  head: () => ({ meta: [{ title: "Masuk — Gen CB Kasir" }] }),
+  head: () => ({ meta: [{ title: "Login POS — GEN-CB Kasir" }] }),
+  component: TenantLoginPage,
 });
 
-function LoginPage() {
-  const router = useRouter();
-  const login = useServerFn(loginWithPin);
+function TenantLoginPage() {
+  const navigate = useNavigate();
+  const doTenantLogin = useServerFn(loginTenantWithPin);
+
+  const [tenantCode, setTenantCode] = useState("");
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
+  const [lockoutError, setLockoutError] = useState<string | null>(null);
 
-  const press = (n: string) => {
-    if (pin.length >= 8) return;
-    setPin((p) => p + n);
-  };
-  const clear = () => setPin("");
-  const back = () => setPin((p) => p.slice(0, -1));
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLockoutError(null);
 
-  const submit = async () => {
-    if (pin.length < 3) return;
+    if (!tenantCode.trim()) {
+      toast.error("Kode Tenant / Usaha wajib diisi");
+      return;
+    }
+    if (!pin.trim() || pin.length < 4) {
+      toast.error("PIN minimal 4 digit");
+      return;
+    }
+
     setBusy(true);
     try {
-      const res = await login({ data: { pin } });
+      const res = await doTenantLogin({
+        data: {
+          tenant_code: tenantCode.trim().toUpperCase(),
+          pin: pin.trim(),
+        },
+      });
+
       if (!res.ok) {
-        toast.error(res.error || "PIN tidak valid");
+        setLockoutError(res.error);
+        toast.error(res.error);
         setPin("");
-        return;
-      }
-      toast.success(`Selamat datang kembali, ${res.staff.name}`);
-      if (res.staff.role === "admin") {
-        await router.navigate({ to: "/" });
       } else {
-        await router.navigate({ to: "/kasir" });
+        toast.success(`Selamat datang di ${res.tenant.name}!`);
+        navigate({ to: res.redirect });
       }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal masuk");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Gagal login tenant";
+      setLockoutError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
   };
 
+  const pressDigit = (digit: string) => {
+    if (pin.length < 10) setPin((prev) => prev + digit);
+  };
+
+  const backspace = () => {
+    setPin((prev) => prev.slice(0, -1));
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-[color:var(--bg-soft,#F7F9FC)]">
-      <div className="glass-card grid w-full max-w-4xl grid-cols-1 overflow-hidden rounded-3xl md:grid-cols-2 shadow-2xl border border-border/80">
-        {/* Left Branding Panel */}
-        <div
-          className="relative overflow-hidden p-8 md:p-12 text-white flex flex-col justify-between"
-          style={{ background: "linear-gradient(135deg, #002B7F 0%, #0047B3 60%, #00A3FF 100%)" }}
-        >
-          <div className="absolute -top-16 -right-10 h-64 w-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-          <div
-            className="absolute bottom-0 -left-10 h-56 w-56 rounded-full pointer-events-none"
-            style={{ background: "radial-gradient(closest-side, rgba(255,122,0,0.35), transparent)" }}
-          />
-          <div className="relative z-10">
-            <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white p-2 shadow-xl">
-                <img src={logoAsset.url} alt="Logo GEN-CB" className="h-full w-full object-contain" />
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-widest text-white/80 font-bold">Yayasan GEN-CB</div>
-                <div className="text-3xl font-extrabold tracking-tight">GEN-CB Kasir</div>
-              </div>
-            </div>
-            <p className="mt-8 text-sm leading-relaxed text-white/90 font-medium">
-              Sistem Kasir Produksi & Manajemen Antrean Penjualan Yayasan Generasi Cerdas Beraksi. Cepat, aman, dan siap operasional.
-            </p>
-
-            <ul className="mt-6 space-y-2.5 text-xs text-white/85 font-medium">
-              <li className="flex items-center gap-2">• Transaksi kasir cepat & akurat untuk tablet</li>
-              <li className="flex items-center gap-2">• Sinkronisasi antrean real-time ke Display Pesanan</li>
-              <li className="flex items-center gap-2">• Laporan omzet dan audit pergerakan stok otomatis</li>
-            </ul>
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: "radial-gradient(circle at top, #002B7F 0%, #001238 100%)" }}
+    >
+      <div className="w-full max-w-md space-y-6">
+        {/* Logo Branding */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-tr from-[#FF7A00] to-[#FFB000] shadow-xl text-white font-black text-2xl">
+            GEN
           </div>
-
-          <div className="relative z-10 mt-8 rounded-2xl bg-white/10 p-4 text-xs text-white/90 backdrop-blur border border-white/20">
-            <div className="flex items-center gap-2 font-bold mb-1">
-              <Lock className="h-4 w-4 text-amber-300" /> Otentikasi Petugas
-            </div>
-            Gunakan PIN terdaftar untuk masuk ke sistem Kasir atau Panel Administrator.
-          </div>
+          <h1 className="text-3xl font-black text-white tracking-tight">GEN CB KASIR</h1>
+          <p className="text-xs text-blue-200/80 font-medium">Sistem Kasir & Display Multi-Tenant POS SaaS</p>
         </div>
 
-        {/* Right PIN Keypad Panel */}
-        <div className="p-8 md:p-10 flex flex-col justify-center bg-white">
-          <div className="text-center md:text-left">
-            <h2 className="text-2xl font-extrabold text-[color:var(--brand-deep)]">Masuk Sistem Kasir</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Masukkan PIN petugas Anda untuk mulai bekerja.</p>
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} className="rounded-3xl bg-white/10 p-6 sm:p-8 backdrop-blur-xl border border-white/20 shadow-2xl space-y-5">
+          <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#FFB000] border-b border-white/10 pb-3">
+            <KeyRound className="h-4 w-4" /> Masuk Akses Usaha (PIN Only)
           </div>
 
-          <div className="mt-8 flex justify-center gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className={`h-4 w-4 rounded-full border-2 transition-all ${
-                  i < pin.length
-                    ? "border-[color:var(--brand)] bg-[color:var(--brand)] scale-110 shadow-sm"
-                    : "border-border bg-secondary"
-                }`}
+          {lockoutError && (
+            <div className="rounded-2xl bg-red-500/20 border border-red-500/40 p-3.5 text-xs text-red-200 font-bold flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+              <span>{lockoutError}</span>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-blue-100 mb-1">Kode Tenant / Usaha</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={tenantCode}
+                  onChange={(e) => setTenantCode(e.target.value.toUpperCase())}
+                  placeholder="Contoh: KK001"
+                  className="w-full rounded-2xl border border-white/20 bg-white/10 py-3.5 pl-10 pr-4 text-sm font-black text-white tracking-wider outline-none uppercase placeholder:text-blue-200/40 focus:border-[#FF7A00] focus:bg-white/20 transition"
+                />
+                <Store className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-200/50" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-blue-100 mb-1">PIN Akses (Min. 4 Digit)</label>
+              <input
+                type="password"
+                required
+                readOnly
+                value={pin}
+                placeholder="• • • • • •"
+                className="w-full text-center tracking-[0.5em] text-2xl font-black rounded-2xl border border-white/20 bg-white/10 py-3.5 px-4 text-white outline-none placeholder:text-blue-200/40 placeholder:tracking-normal placeholder:text-sm focus:border-[#FF7A00] focus:bg-white/20 transition"
               />
-            ))}
+            </div>
           </div>
 
-          <div className="mx-auto mt-8 grid max-w-xs grid-cols-3 gap-3 w-full">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+          {/* Keypad */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => (
               <button
                 key={n}
-                onClick={() => press(String(n))}
-                className="h-16 rounded-2xl bg-secondary/80 text-2xl font-black text-[color:var(--brand-deep)] shadow-sm ring-1 ring-border/60 transition active:scale-95 hover:bg-[color:var(--brand)]/10"
+                type="button"
+                onClick={() => pressDigit(n)}
+                className="rounded-2xl bg-white/10 py-3.5 text-lg font-black text-white hover:bg-white/20 active:scale-95 transition"
               >
                 {n}
               </button>
             ))}
             <button
-              onClick={clear}
-              className="h-16 rounded-2xl bg-secondary/80 text-xs font-extrabold text-muted-foreground shadow-sm ring-1 ring-border/60 active:scale-95 hover:bg-secondary"
+              type="button"
+              onClick={backspace}
+              className="rounded-2xl bg-white/10 py-3.5 text-xs font-extrabold text-red-300 hover:bg-red-500/20 active:scale-95 transition"
             >
-              C
+              Hapus
             </button>
             <button
-              onClick={() => press("0")}
-              className="h-16 rounded-2xl bg-secondary/80 text-2xl font-black text-[color:var(--brand-deep)] shadow-sm ring-1 ring-border/60 transition active:scale-95 hover:bg-[color:var(--brand)]/10"
+              type="button"
+              onClick={() => pressDigit("0")}
+              className="rounded-2xl bg-white/10 py-3.5 text-lg font-black text-white hover:bg-white/20 active:scale-95 transition"
             >
               0
             </button>
             <button
-              onClick={back}
-              className="grid h-16 place-items-center rounded-2xl bg-secondary/80 shadow-sm ring-1 ring-border/60 active:scale-95 hover:bg-secondary"
+              type="button"
+              onClick={() => setPin("")}
+              className="rounded-2xl bg-white/10 py-3.5 text-xs font-extrabold text-blue-200 hover:bg-white/20 active:scale-95 transition"
             >
-              <Delete className="h-6 w-6 text-muted-foreground" />
+              Reset
             </button>
           </div>
 
           <button
-            onClick={submit}
-            disabled={busy || pin.length < 3}
-            className="btn-brand mt-8 w-full rounded-2xl py-4 text-base font-extrabold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            type="submit"
+            disabled={busy}
+            className="w-full btn-orange rounded-2xl py-4 text-sm font-extrabold shadow-lg transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {busy ? "Memeriksa PIN..." : "Masuk Sistem"}
+            <LogIn className="h-4 w-4" />
+            {busy ? "Memverifikasi PIN..." : "Masuk Sistem Kasir"}
           </button>
+        </form>
+
+        <div className="text-center space-y-1">
+          <a href="/admin/login" className="text-xs text-blue-200/70 hover:text-white font-bold underline transition">
+            Portal Login Super Admin GEN-CB &rarr;
+          </a>
         </div>
       </div>
     </div>

@@ -21,6 +21,13 @@ import { Route as PesananAktifRouteImport } from './routes/pesanan-aktif'
 import { Route as ProdukRouteImport } from './routes/produk'
 import { Route as StokRouteImport } from './routes/stok'
 import { Route as TransaksiRouteImport } from './routes/transaksi'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AppAdminRouteImport } from './routes/app/admin'
+import { Route as AppKasirRouteImport } from './routes/app/kasir'
+import { Route as DisplayAntrianRouteImport } from './routes/display/antrian'
+import { Route as DisplayCustomerRouteImport } from './routes/display/customer'
+import { Route as AdminTenantIdRouteImport } from './routes/admin/tenant/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +89,41 @@ const TransaksiRoute = TransaksiRouteImport.update({
   path: '/transaksi',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/app/admin',
+  path: '/app/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppKasirRoute = AppKasirRouteImport.update({
+  id: '/app/kasir',
+  path: '/app/kasir',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DisplayAntrianRoute = DisplayAntrianRouteImport.update({
+  id: '/display/antrian',
+  path: '/display/antrian',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DisplayCustomerRoute = DisplayCustomerRouteImport.update({
+  id: '/display/customer',
+  path: '/display/customer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTenantIdRoute = AdminTenantIdRouteImport.update({
+  id: '/admin/tenant/$id',
+  path: '/admin/tenant/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +138,13 @@ export interface FileRoutesByFullPath {
   '/produk': typeof ProdukRoute
   '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/app/admin': typeof AppAdminRoute
+  '/app/kasir': typeof AppKasirRoute
+  '/display/antrian': typeof DisplayAntrianRoute
+  '/display/customer': typeof DisplayCustomerRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/tenant/$id': typeof AdminTenantIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +159,13 @@ export interface FileRoutesByTo {
   '/produk': typeof ProdukRoute
   '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/app/admin': typeof AppAdminRoute
+  '/app/kasir': typeof AppKasirRoute
+  '/display/antrian': typeof DisplayAntrianRoute
+  '/display/customer': typeof DisplayCustomerRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/tenant/$id': typeof AdminTenantIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +181,13 @@ export interface FileRoutesById {
   '/produk': typeof ProdukRoute
   '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/app/admin': typeof AppAdminRoute
+  '/app/kasir': typeof AppKasirRoute
+  '/display/antrian': typeof DisplayAntrianRoute
+  '/display/customer': typeof DisplayCustomerRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/tenant/$id': typeof AdminTenantIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +204,13 @@ export interface FileRouteTypes {
     | '/produk'
     | '/stok'
     | '/transaksi'
+    | '/admin/login'
+    | '/app/admin'
+    | '/app/kasir'
+    | '/display/antrian'
+    | '/display/customer'
+    | '/admin/'
+    | '/admin/tenant/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +225,13 @@ export interface FileRouteTypes {
     | '/produk'
     | '/stok'
     | '/transaksi'
+    | '/admin/login'
+    | '/app/admin'
+    | '/app/kasir'
+    | '/display/antrian'
+    | '/display/customer'
+    | '/admin'
+    | '/admin/tenant/$id'
   id:
     | '__root__'
     | '/'
@@ -169,6 +246,13 @@ export interface FileRouteTypes {
     | '/produk'
     | '/stok'
     | '/transaksi'
+    | '/admin/login'
+    | '/app/admin'
+    | '/app/kasir'
+    | '/display/antrian'
+    | '/display/customer'
+    | '/admin/'
+    | '/admin/tenant/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +268,13 @@ export interface RootRouteChildren {
   ProdukRoute: typeof ProdukRoute
   StokRoute: typeof StokRoute
   TransaksiRoute: typeof TransaksiRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+  AppAdminRoute: typeof AppAdminRoute
+  AppKasirRoute: typeof AppKasirRoute
+  DisplayAntrianRoute: typeof DisplayAntrianRoute
+  DisplayCustomerRoute: typeof DisplayCustomerRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminTenantIdRoute: typeof AdminTenantIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -272,6 +363,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TransaksiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/admin': {
+      id: '/app/admin'
+      path: '/app/admin'
+      fullPath: '/app/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/kasir': {
+      id: '/app/kasir'
+      path: '/app/kasir'
+      fullPath: '/app/kasir'
+      preLoaderRoute: typeof AppKasirRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/display/antrian': {
+      id: '/display/antrian'
+      path: '/display/antrian'
+      fullPath: '/display/antrian'
+      preLoaderRoute: typeof DisplayAntrianRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/display/customer': {
+      id: '/display/customer'
+      path: '/display/customer'
+      fullPath: '/display/customer'
+      preLoaderRoute: typeof DisplayCustomerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/tenant/$id': {
+      id: '/admin/tenant/$id'
+      path: '/admin/tenant/$id'
+      fullPath: '/admin/tenant/$id'
+      preLoaderRoute: typeof AdminTenantIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -288,6 +428,13 @@ const rootRouteChildren: RootRouteChildren = {
   ProdukRoute: ProdukRoute,
   StokRoute: StokRoute,
   TransaksiRoute: TransaksiRoute,
+  AdminLoginRoute: AdminLoginRoute,
+  AppAdminRoute: AppAdminRoute,
+  AppKasirRoute: AppKasirRoute,
+  DisplayAntrianRoute: DisplayAntrianRoute,
+  DisplayCustomerRoute: DisplayCustomerRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminTenantIdRoute: AdminTenantIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
