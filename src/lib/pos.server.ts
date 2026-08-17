@@ -17,10 +17,15 @@ export async function getTenantContext() {
 
 export async function requireSuperAdmin() {
   const session = await getGateSession();
-  if (!session.data.isSuperAdmin && session.data.role !== "super_admin") {
-    throw new Error("Akses ditolak: Hanya Super Admin");
+  if (
+    !session.data.isSuperAdmin &&
+    session.data.role !== "super_admin" &&
+    session.data.role !== "tenant_admin" &&
+    session.data.role !== "admin"
+  ) {
+    throw new Error("Akses ditolak: Hanya Admin / Super Admin");
   }
-  return { id: session.data.staffId || "super_admin", role: "super_admin" as const };
+  return { id: session.data.staffId || session.data.memberId || "super_admin", role: "super_admin" as const };
 }
 
 export async function requireStaff() {

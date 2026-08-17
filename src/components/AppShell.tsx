@@ -12,6 +12,7 @@ import {
   Package,
   Receipt,
   Settings,
+  Shield,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -29,6 +30,7 @@ type NavItem = {
 
 const ADMIN_NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/admin", label: "Super Admin Platform", icon: Shield },
   { to: "/kasir", label: "Kasir", icon: LayoutGrid },
   { to: "/pesanan-aktif", label: "Pesanan Aktif", icon: Clock },
   { to: "/display-pesanan", label: "Display Pesanan", icon: Monitor, external: true },
