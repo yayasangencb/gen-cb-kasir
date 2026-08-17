@@ -1,192 +1,230 @@
 -- ============================================================================
--- MIGRATION: 20260818000000_multi_tenant_saas.sql
--- DESCRIPTION: Multi-Tenant / Multi-UKM POS SaaS Architecture for GEN-CB Kasir
+-- MULTI-TENANT POS & SAAS PLATFORM MIGRATION - GEN CB KASIR
 -- ============================================================================
 
--- 1. PACKAGES (Paket Berlangganan)
-CREATE TABLE IF NOT EXISTS public.packages (
+-- 1. SUBSCRIPTION PLANS
+CREATE TABLE IF NOT EXISTS public.plans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL UNIQUE,
+  name text NOT NULL,
   price numeric NOT NULL DEFAULT 0,
-  billing_period text NOT NULL DEFAULT 'monthly',
-  max_cashiers integer NOT NULL DEFAULT 1,
-  max_customer_displays integer NOT NULL DEFAULT 1,
-  max_queue_displays integer NOT NULL DEFAULT 1,
+  duration_days integer NOT NULL DEFAULT 30,
+  max_cashiers integer NOT NULL DEFAULT 2,
+  max_devices integer NOT NULL DEFAULT 2,
   max_products integer NOT NULL DEFAULT 100,
   features jsonb DEFAULT '[]'::jsonb,
   is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-INSERT INTO public.packages (name, price, max_cashiers, max_customer_displays, max_queue_displays, max_products, features)
-VALUES
-  ('Starter', 99000, 1, 1, 1, 100, '["Dashboard Basic", "Kasir POS", "Struk Standard", "Queue Display"]'::jsonb),
-  ('Business', 199000, 3, 2, 2, 999999, '["Dashboard Full", "Kasir Multi-User", "Customer Display Signage", "Queue Display", "Laporan Detail"]'::jsonb),
-  ('Pro', 399000, 10, 5, 5, 999999, '["Full Features", "Multi Cashier & Display", "Advanced Analytics", "Payment Gateway Ready", "Priority Support"]'::jsonb)
-ON CONFLICT (name) DO NOTHING;
-
--- 2. TENANTS (Usaha / UKM)
-CREATE TABLE IF NOT EXISTS public.tenants (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_code text NOT NULL UNIQUE,
-  business_name text NOT NULL,
-  owner_name text NOT NULL,
-  phone text NOT NULL,
-  email text,
-  address text,
-  city text,
-  business_type text NOT NULL DEFAULT 'Coffee Shop',
-  logo_url text,
-  package_id uuid REFERENCES public.packages(id) ON DELETE SET NULL,
-  start_date timestamptz NOT NULL DEFAULT now(),
-  expired_at timestamptz NOT NULL DEFAULT (now() + interval '1 year'),
-  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
-  max_cashiers integer NOT NULL DEFAULT 1,
-  max_displays integer NOT NULL DEFAULT 2,
-  notes text,
-  primary_color text NOT NULL DEFAULT '#002B7F',
-  accent_color text NOT NULL DEFAULT '#FF7A00',
-  qris_image_url text,
-  qris_provider text NOT NULL DEFAULT 'STATIC',
-  is_deleted boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS tenants_code_idx ON public.tenants (tenant_code);
-CREATE INDEX IF NOT EXISTS tenants_status_idx ON public.tenants (status, is_deleted);
 
--- 3. ACCESS PINS (PIN Hak Akses Tenant)
-CREATE TABLE IF NOT EXISTS public.access_pins (
+-- Seed default plans
+INSERT INTO public.plans (id, name, price, duration_days, max_cashiers, max_devices, max_products, is_active)
+VALUES 
+  ('11111111-1111-1111-1111-111111111111', 'Basic Starter', 0, 365, 3, 3, 150, true),
+  ('22222222-2222-2222-2222-222222222222', 'Pro Business', 150000, 30, 10, 10, 1000, true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. TENANTS / UKM ACCOUNTS
+CREATE TABLE IF NOT EXISTS public.tenants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  slug text NOT NULL UNIQUE,
+  logo_url text,
+  owner_name text NOT NULL DEFAULT 'Pemilik Toko',
+  owner_whatsapp text,
+  owner_email text,
+  address text,
+  city text,
+  province text,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'expired', 'trial')),
+  valid_until timestamptz,
+  plan_id uuid REFERENCES public.plans(id) ON DELETE SET NULL,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Seed default tenant for existing data
+INSERT INTO public.tenants (id, name, slug, owner_name, owner_email, status, valid_until)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Gen CB Cafe', 'gen-cb-cafe', 'Admin Gen CB', 'yayasangencb@gmail.com', 'active', now() + interval '10 years')
+ON CONFLICT (id) DO NOTHING;
+
+-- 3. TENANT SUBSCRIPTIONS
+CREATE TABLE IF NOT EXISTS public.tenant_subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  role text NOT NULL CHECK (role IN ('tenant_admin', 'cashier', 'customer_display', 'queue_display')),
-  pin_raw text NOT NULL,
-  pin_hash text NOT NULL,
-  is_active boolean NOT NULL DEFAULT true,
-  generated_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT unique_tenant_role_pin UNIQUE (tenant_id, role)
-);
-CREATE INDEX IF NOT EXISTS access_pins_lookup_idx ON public.access_pins (tenant_id, role, pin_raw);
-
--- 4. PIN LOGIN ATTEMPTS (Anti-Bruteforce Rate Limiter)
-CREATE TABLE IF NOT EXISTS public.pin_login_attempts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_code text NOT NULL,
-  attempts integer NOT NULL DEFAULT 0,
-  locked_until timestamptz,
-  last_attempt_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT unique_tenant_code_attempt UNIQUE (tenant_code)
-);
-
--- 5. TENANT DEVICES (Manajemen Perangkat / Sesi)
-CREATE TABLE IF NOT EXISTS public.tenant_devices (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  role text NOT NULL,
-  device_token text NOT NULL UNIQUE,
-  device_name text,
-  browser text,
-  ip_address text,
-  last_seen timestamptz NOT NULL DEFAULT now(),
-  is_active boolean NOT NULL DEFAULT true,
+  plan_id uuid NOT NULL REFERENCES public.plans(id) ON DELETE CASCADE,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('trial', 'active', 'expired', 'suspended')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- 6. PROMOTIONS (Promosi & Diskon)
-CREATE TABLE IF NOT EXISTS public.promotions (
+-- 4. TENANT MEMBERS (Admin Kasir & Kasir)
+CREATE TABLE IF NOT EXISTS public.tenant_members (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   name text NOT NULL,
-  discount_type text NOT NULL CHECK (discount_type IN ('percentage', 'nominal', 'fixed_price')),
-  discount_value numeric NOT NULL DEFAULT 0,
-  product_id uuid,
-  category_id uuid,
-  start_date date,
-  end_date date,
-  start_time time,
-  end_time time,
-  show_on_display boolean NOT NULL DEFAULT true,
+  role text NOT NULL CHECK (role IN ('tenant_admin', 'cashier')),
+  pin_hash text NOT NULL,
+  encrypted_pin text,
   is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
--- 7. DISPLAY CONTENTS (Slideshow Customer Display Signage)
-CREATE TABLE IF NOT EXISTS public.display_contents (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  content_type text NOT NULL CHECK (content_type IN ('banner', 'product', 'promo', 'video', 'qris')),
-  media_url text NOT NULL,
-  title text,
-  subtitle text,
-  sort_order integer NOT NULL DEFAULT 0,
-  duration_seconds integer NOT NULL DEFAULT 8,
-  start_date date,
-  end_date date,
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
--- 8. PAYMENT INTEGRATIONS & PAYMENTS
-CREATE TABLE IF NOT EXISTS public.payment_integrations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  provider_name text NOT NULL,
-  merchant_id text,
-  public_key text,
-  secret_reference text,
-  webhook_secret_reference text,
-  environment text NOT NULL DEFAULT 'sandbox' CHECK (environment IN ('sandbox', 'production')),
-  is_active boolean NOT NULL DEFAULT false,
+  last_login_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.payments (
+-- Seed default tenant admin & cashier if not exists
+INSERT INTO public.tenant_members (id, tenant_id, name, role, pin_hash, encrypted_pin, is_active)
+VALUES 
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000001', 'Manager Gen CB', 'tenant_admin', '1234', '1234', true),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-000000000001', 'Kasir Utama', 'cashier', '2222', '2222', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 5. DEVICES (Customer Display & Queue Display)
+CREATE TABLE IF NOT EXISTS public.devices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-  transaction_id uuid REFERENCES public.transactions(id) ON DELETE SET NULL,
-  payment_method text NOT NULL,
-  provider text NOT NULL DEFAULT 'STATIC_QRIS',
-  amount numeric NOT NULL,
+  device_type text NOT NULL CHECK (device_type IN ('customer_display', 'queue_display')),
+  name text NOT NULL,
+  access_pin_hash text NOT NULL,
+  encrypted_pin text,
+  is_active boolean NOT NULL DEFAULT true,
+  last_seen_at timestamptz,
+  last_login_at timestamptz,
+  current_session_id text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Seed default customer & queue display devices
+INSERT INTO public.devices (id, tenant_id, device_type, name, access_pin_hash, encrypted_pin, is_active)
+VALUES 
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', '00000000-0000-0000-0000-000000000001', 'customer_display', 'Display Depan Kasir', '348521', '348521', true),
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000001', 'queue_display', 'Display Nomor Antrean', '9999', '9999', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 6. POS TERMINALS (Pairing Kasir -> Customer Display)
+CREATE TABLE IF NOT EXISTS public.pos_terminals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  name text NOT NULL DEFAULT 'Terminal Kasir Utama',
+  cashier_device_id uuid REFERENCES public.devices(id) ON DELETE SET NULL,
+  customer_display_device_id uuid REFERENCES public.devices(id) ON DELETE SET NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 7. DISPLAY PROMOTIONS (Slideshow for Customer Display)
+CREATE TABLE IF NOT EXISTS public.display_promotions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  description text,
+  image_url text NOT NULL,
+  promotion_type text NOT NULL DEFAULT 'banner' CHECK (promotion_type IN ('banner', 'product', 'discount', 'announcement')),
+  product_id uuid,
+  start_date timestamptz,
+  end_date timestamptz,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- 8. PAYMENT ARCHITECTURE (Providers, Settings, Transactions)
+CREATE TABLE IF NOT EXISTS public.payment_providers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_code text NOT NULL UNIQUE,
+  provider_name text NOT NULL,
+  supports_qris boolean NOT NULL DEFAULT true,
+  supports_va boolean NOT NULL DEFAULT false,
+  supports_ewallet boolean NOT NULL DEFAULT false,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO public.payment_providers (provider_code, provider_name, supports_qris, supports_va, supports_ewallet)
+VALUES 
+  ('qris_statik', 'QRIS Statik / Manual', true, false, false),
+  ('midtrans', 'Midtrans Gateway', true, true, true),
+  ('xendit', 'Xendit Gateway', true, true, true),
+  ('pakasir', 'Pakasir QRIS', true, false, false)
+ON CONFLICT (provider_code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS public.tenant_payment_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  provider_id uuid REFERENCES public.payment_providers(id) ON DELETE CASCADE,
+  merchant_id text,
+  configuration_encrypted text,
+  qris_enabled boolean NOT NULL DEFAULT true,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, provider_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.payment_transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  transaction_id uuid,
+  provider_id uuid REFERENCES public.payment_providers(id) ON DELETE SET NULL,
   external_reference text,
-  payment_status text NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending', 'paid', 'failed', 'expired', 'cancelled', 'refunded')),
-  qr_payload text,
+  payment_method text NOT NULL DEFAULT 'qris',
+  gross_amount numeric NOT NULL,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'expired', 'failed', 'cancelled', 'refunded')),
+  qr_string text,
   qr_image_url text,
   expires_at timestamptz,
   paid_at timestamptz,
+  raw_response jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- 9. AUDIT LOGS (Catatan Aktivitas Super Admin)
-CREATE TABLE IF NOT EXISTS public.audit_logs (
+-- 9. ACTIVITY LOGS (Platform Audit Trail)
+CREATE TABLE IF NOT EXISTS public.activity_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_email text NOT NULL,
+  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE,
+  actor_type text NOT NULL CHECK (actor_type IN ('super_admin', 'tenant_admin', 'cashier', 'device', 'system')),
+  actor_id text,
+  actor_name text,
   action text NOT NULL,
-  tenant_id uuid,
+  target_type text,
+  target_id text,
   metadata jsonb DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- 10. ADD TENANT_ID TO OPERATIONAL TABLES
-ALTER TABLE public.products ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
+-- ============================================================================
+-- ADD TENANT_ID TO OPERATIONAL TABLES & MIGRATE EXISTING DATA
+-- ============================================================================
+
 ALTER TABLE public.categories ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
+UPDATE public.categories SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
+UPDATE public.products SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
-ALTER TABLE public.transaction_items ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
+UPDATE public.transactions SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+
 ALTER TABLE public.queues ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
+ALTER TABLE public.queues ADD COLUMN IF NOT EXISTS announced_at timestamptz;
+ALTER TABLE public.queues ADD COLUMN IF NOT EXISTS last_recalled_at timestamptz;
+ALTER TABLE public.queues ADD COLUMN IF NOT EXISTS recall_count integer NOT NULL DEFAULT 0;
+UPDATE public.queues SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+
 ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
+UPDATE public.stock_movements SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+
 ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
-ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE;
+UPDATE public.store_settings SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
 
-CREATE INDEX IF NOT EXISTS products_tenant_idx ON public.products (tenant_id);
-CREATE INDEX IF NOT EXISTS categories_tenant_idx ON public.categories (tenant_id);
-CREATE INDEX IF NOT EXISTS transactions_tenant_idx ON public.transactions (tenant_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS queues_tenant_idx ON public.queues (tenant_id, queue_date, status);
-CREATE INDEX IF NOT EXISTS stock_movements_tenant_idx ON public.stock_movements (tenant_id, created_at DESC);
-
--- 11. ATOMIC MULTI-TENANT CHECKOUT & QUEUE FUNCTION
-CREATE OR REPLACE FUNCTION public.create_pos_transaction_multi(
+-- ============================================================================
+-- ATOMIC MULTI-TENANT CHECKOUT RPC
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.create_pos_transaction_tenant(
   _tenant_id uuid,
   _cashier_id uuid,
   _customer_name text,
@@ -210,23 +248,27 @@ DECLARE
   v_queue integer;
   v_today date := (now() AT TIME ZONE 'Asia/Jakarta')::date;
   v_number text;
-  v_tenant_code text;
+  v_tenant_slug text;
 BEGIN
-  IF _tenant_id IS NULL THEN RAISE EXCEPTION 'Tenant ID wajib ada'; END IF;
+  IF _tenant_id IS NULL THEN RAISE EXCEPTION 'Tenant ID wajib diisi'; END IF;
   IF _items IS NULL OR jsonb_array_length(_items) = 0 THEN RAISE EXCEPTION 'Keranjang kosong'; END IF;
 
-  SELECT tenant_code INTO v_tenant_code FROM tenants WHERE id = _tenant_id AND status = 'active' AND NOT is_deleted;
-  IF v_tenant_code IS NULL THEN RAISE EXCEPTION 'Tenant tidak aktif atau tidak ditemukan'; END IF;
+  SELECT slug INTO v_tenant_slug FROM tenants WHERE id = _tenant_id AND status = 'active';
+  IF v_tenant_slug IS NULL THEN RAISE EXCEPTION 'Tenant tidak aktif atau tidak ditemukan'; END IF;
 
-  SELECT name INTO v_cashier_name FROM staff WHERE id = _cashier_id AND is_active AND (tenant_id = _tenant_id OR tenant_id IS NULL);
+  SELECT name INTO v_cashier_name FROM tenant_members WHERE id = _cashier_id AND tenant_id = _tenant_id AND is_active;
+  IF v_cashier_name IS NULL THEN
+    SELECT name INTO v_cashier_name FROM staff WHERE id = _cashier_id AND is_active;
+  END IF;
   IF v_cashier_name IS NULL THEN v_cashier_name := 'Kasir'; END IF;
 
-  -- validate & lock products for this specific tenant
+  -- Validate stock & compute prices from DB
   FOR v_item IN SELECT * FROM jsonb_array_elements(_items) LOOP
     v_qty := (v_item->>'quantity')::int;
     IF v_qty IS NULL OR v_qty < 1 THEN RAISE EXCEPTION 'Jumlah pesanan tidak valid'; END IF;
+
     SELECT * INTO v_prod FROM products WHERE id = (v_item->>'product_id')::uuid AND tenant_id = _tenant_id FOR UPDATE;
-    IF v_prod IS NULL THEN RAISE EXCEPTION 'Produk tidak ditemukan'; END IF;
+    IF v_prod IS NULL THEN RAISE EXCEPTION 'Produk tidak ditemukan dalam toko ini'; END IF;
     IF NOT v_prod.is_active OR NOT v_prod.is_available THEN
       RAISE EXCEPTION 'Produk % tidak tersedia', v_prod.name;
     END IF;
@@ -238,14 +280,14 @@ BEGIN
 
   v_grand := GREATEST(0, v_subtotal - COALESCE(_discount, 0));
   IF COALESCE(_amount_paid, 0) < v_grand THEN
-    RAISE EXCEPTION 'Uang diterima kurang dari total';
+    RAISE EXCEPTION 'Uang diterima kurang dari total tagihan';
   END IF;
   v_change := _amount_paid - v_grand;
 
-  -- serialize queue numbering per tenant per date
-  PERFORM pg_advisory_xact_lock(hashtext('gencb_queue_' || _tenant_id::text || '_' || v_today::text));
+  -- Per-tenant daily queue serialization
+  PERFORM pg_advisory_xact_lock(hashtext('queue_' || _tenant_id::text || '_' || v_today::text));
   SELECT COALESCE(MAX(queue_number), 0) + 1 INTO v_queue FROM queues WHERE tenant_id = _tenant_id AND queue_date = v_today;
-  v_number := v_tenant_code || '-' || to_char(v_today, 'YYYYMMDD') || '-' || lpad(v_queue::text, 4, '0');
+  v_number := 'INV-' || upper(replace(v_tenant_slug, '-', '')) || '-' || to_char(v_today, 'YYYYMMDD') || '-' || lpad(v_queue::text, 3, '0');
 
   INSERT INTO transactions (
     tenant_id, transaction_number, cashier_id, cashier_name, customer_name, order_type,
@@ -262,10 +304,10 @@ BEGIN
     SELECT * INTO v_prod FROM products WHERE id = (v_item->>'product_id')::uuid AND tenant_id = _tenant_id FOR UPDATE;
 
     INSERT INTO transaction_items (
-      tenant_id, transaction_id, product_id, product_name_snapshot, product_price_snapshot,
+      transaction_id, product_id, product_name_snapshot, product_price_snapshot,
       quantity, subtotal, notes
     ) VALUES (
-      _tenant_id, v_txn_id, v_prod.id, v_prod.name, v_prod.selling_price, v_qty,
+      v_txn_id, v_prod.id, v_prod.name, v_prod.selling_price, v_qty,
       v_prod.selling_price * v_qty, NULLIF(trim(COALESCE(v_item->>'notes','')),'')
     );
 
@@ -295,27 +337,10 @@ BEGIN
   );
 END; $$;
 
-GRANT EXECUTE ON FUNCTION public.create_pos_transaction_multi(uuid,uuid,text,text,numeric,text,numeric,text,jsonb) TO service_role, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_pos_transaction_tenant TO service_role, anon, authenticated;
 
--- 12. REALTIME PUBLICATION FOR MULTI-TENANT TABLES
+-- Enable Realtime for queues
+ALTER TABLE public.queues REPLICA IDENTITY FULL;
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.queues;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.display_contents;
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
--- 13. STORAGE BUCKET FOR CUSTOMER DISPLAY
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('customer-display', 'customer-display', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'video/mp4'])
-ON CONFLICT (id) DO UPDATE SET public = true;
-
-DROP POLICY IF EXISTS "Public customer-display read" ON storage.objects;
-CREATE POLICY "Public customer-display read" ON storage.objects FOR SELECT TO public USING (bucket_id = 'customer-display');
-DROP POLICY IF EXISTS "Public customer-display upload" ON storage.objects;
-CREATE POLICY "Public customer-display upload" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'customer-display');

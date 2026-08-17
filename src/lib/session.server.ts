@@ -1,22 +1,24 @@
 import { useSession } from "@tanstack/react-start/server";
 
-export type TenantRole = "tenant_admin" | "cashier" | "customer_display" | "queue_display";
+export type SessionRole = "super_admin" | "tenant_admin" | "cashier" | "customer_display" | "queue_display" | "admin" | "kasir";
 
 export type SessionData = {
-  isSuperAdmin?: boolean;
   tenantId?: string;
-  tenantCode?: string;
-  businessName?: string;
-  tenantRole?: TenantRole;
+  tenantSlug?: string;
+  tenantName?: string;
   staffId?: string;
+  memberId?: string;
+  deviceId?: string;
   name?: string;
+  role?: SessionRole;
+  isSuperAdmin?: boolean;
   displayUnlocked?: boolean;
 };
 
 export function getGateSession() {
   return useSession<SessionData>({
     password: process.env.SESSION_SECRET || "dev-secret-please-change-me-in-production-32ch",
-    name: "gencb-kasir-session",
+    name: "gencb-kasir",
     maxAge: 60 * 60 * 24 * 30,
     cookie: {
       httpOnly: true,

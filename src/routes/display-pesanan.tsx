@@ -17,6 +17,7 @@ type QueueItem = {
   queue_number: number;
   status: "baru" | "diproses" | "selesai" | "diambil" | "dibatalkan";
   customer_name: string | null;
+  announced_at: string | null;
   updated_at: string;
 };
 
@@ -33,7 +34,7 @@ function DisplayPesananPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [nowStr, setNowStr] = useState("");
 
-  const prevCompletedIdsRef = useRef<Set<string>>(new Set());
+  const announcedIdsRef = useRef<Set<string>>(new Set());
 
   // Load display context & store settings
   useEffect(() => {
@@ -63,6 +64,8 @@ function DisplayPesananPage() {
     return () => clearInterval(t);
   }, []);
 
+  const tenantId = contextData?.tenantId || "00000000-0000-0000-0000-000000000001";
+
   // Fetch initial queues & setup Supabase Realtime
   useEffect(() => {
     if (!contextData?.unlocked) return;
@@ -72,7 +75,8 @@ function DisplayPesananPage() {
     const loadQueues = async () => {
       const { data } = await supabase
         .from("queues")
-        .select("id, queue_number, status, customer_name, updated_at")
+        .select("id, queue_number, status, customer_name, announced_at, updated_at")
+        .eq("tenant_id", tenantId)
         .eq("queue_date", todayStr)
         .in("status", ["diproses", "selesai"])
         .order("updated_at", { ascending: false });
@@ -80,50 +84,48 @@ function DisplayPesananPage() {
       const items = (data ?? []) as QueueItem[];
       setQueues(items);
 
-      // Track completed IDs for speech chime
-      const completedSet = new Set(items.filter((q) => q.status === "selesai").map((q) => q.id));
-      prevCompletedIdsRef.current = completedSet;
+      // Trigger TTS ONLY if status = 'selesai' AND announced_at IS NULL AND not announced yet in state
+      for (const item of items) {
+        if (item.status === "selesai" && !item.announced_at && !announcedIdsRef.current.has(item.id)) {
+          announcedIdsRef.current.add(item.id);
+          playChime();
+          announceSpeech(item.queue_number);
+          // Mark announced_at in DB atomically so refresh NEVER repeats call
+          supabase.from("queues").update({ announced_at: new Date().toISOString() }).eq("id", item.id).then();
+        }
+      }
     };
 
     loadQueues();
 
-    // Supabase Realtime channel subscription
+    // Supabase Realtime postgres_changes subscription
     const channel = supabase
-      .channel("public:queues-display")
+      .channel(`tenant:${tenantId}:queues-display`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "queues",
-          filter: `queue_date=eq.${todayStr}`,
+          filter: `tenant_id=eq.${tenantId}`,
         },
         () => {
           loadQueues();
         },
       )
+      .on("broadcast", { event: "recall_queue" }, ({ payload }) => {
+        if (payload?.queue_number) {
+          playChime();
+          announceSpeech(payload.queue_number);
+          toast.info(`Panggil Ulang Nomor Antrean #${String(payload.queue_number).padStart(3, "0")}`);
+        }
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [contextData?.unlocked]);
-
-  // Play sound & TTS when a new queue becomes completed ('selesai')
-  useEffect(() => {
-    if (!soundEnabled || !contextData?.unlocked) return;
-
-    const currentCompleted = queues.filter((q) => q.status === "selesai");
-    for (const q of currentCompleted) {
-      if (!prevCompletedIdsRef.current.has(q.id)) {
-        // Sound notification chime & TTS
-        playChime();
-        announceSpeech(q.queue_number);
-        prevCompletedIdsRef.current.add(q.id);
-        break;
-      }
-    }
-  }, [queues, soundEnabled, contextData?.unlocked]);
+  }, [contextData?.unlocked, tenantId]);
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +141,7 @@ function DisplayPesananPage() {
       setContextData(ctx);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal membuka display");
-    } fontFinally: {
+    } finally {
       setBusy(false);
     }
   };
@@ -344,8 +346,8 @@ function playChime() {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3); // A5
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
     osc.connect(gain);

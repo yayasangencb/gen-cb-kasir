@@ -111,6 +111,20 @@ function KasirPage() {
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
   const total = subtotal;
 
+  const tenantId = staff?.tenantId || "00000000-0000-0000-0000-000000000001";
+
+  // Broadcast cart updates to Customer Display
+  useEffect(() => {
+    const channel = supabase.channel(`tenant:${tenantId}:customer-display`);
+    channel.send({
+      type: "broadcast",
+      event: "cart_update",
+      payload: {
+        items: cart.map((c) => ({ name: c.product_name, price: c.price, qty: c.qty })),
+      },
+    });
+  }, [cart, tenantId]);
+
   const handlePay = async (payload: PaymentPayload) => {
     try {
       const res = await doCheckout({
@@ -128,6 +142,10 @@ function KasirPage() {
           notes: payload.notes || orderNotes.trim() || undefined,
         },
       });
+
+      // Broadcast payment success to Customer Display
+      const channel = supabase.channel(`tenant:${tenantId}:customer-display`);
+      channel.send({ type: "broadcast", event: "payment_success", payload: {} });
 
       toast.success(`Transaksi Berhasil! Antrean #${String(res.queue_number).padStart(3, "0")}`);
       setReceipt(res);

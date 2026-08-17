@@ -4,327 +4,25 @@ import {
   admin,
   buildReceipt,
   fetchPaidTransactions,
-  generateRandomPin,
-  logAuditEvent,
-  requireSuperAdminSession,
-  requireTenantAdminSession,
-  requireTenantSession,
+  requireAdmin,
+  requireStaff,
   signImages,
   today,
 } from "@/lib/pos.server";
 
-/* ============================================================================
-   SUPER ADMIN FUNCTIONS (/admin)
-   ============================================================================ */
-
-export const getSuperAdminDashboardData = createServerFn({ method: "GET" }).handler(async () => {
-  const superAdmin = await requireSuperAdminSession();
-  const db = await admin();
-
-  const now = new Date();
-  const todayStr = today();
-
-  const [
-    { data: tenants },
-    { data: totalCashiersCount },
-    { data: todayTransactions },
-    { data: allTransactions },
-    { data: activeDevices },
-  ] = await Promise.all([
-    db.from("tenants").select("id, business_name, tenant_code, status, expired_at, package_id, is_deleted, created_at").eq("is_deleted", false),
-    db.from("access_pins").select("id").eq("role", "cashier").eq("is_active", true),
-    db.from("transactions").select("id, grand_total, tenant_id, created_at").gte("created_at", todayStr),
-    db.from("transactions").select("id, grand_total, tenant_id, created_at"),
-    db.from("tenant_devices").select("id").eq("is_active", true),
-  ]);
-
-  const tenantList = tenants ?? [];
-  const activeTenants = tenantList.filter((t) => t.status === "active" && new Date(t.expired_at) >= now);
-  const inactiveTenants = tenantList.filter((t) => t.status !== "active" || new Date(t.expired_at) < now);
-
-  const totalOmzet = (allTransactions ?? []).reduce((sum, t) => sum + Number(t.grand_total || 0), 0);
-  const todayOmzet = (todayTransactions ?? []).reduce((sum, t) => sum + Number(t.grand_total || 0), 0);
-
-  // Expiring soon (< 7 days)
-  const sevenDaysLater = new Date(Date.now() + 7 * 86400_000);
-  const expiringSoon = activeTenants.filter((t) => new Date(t.expired_at) <= sevenDaysLater);
-
-  // Active tenants today
-  const activeTenantIdsToday = new Set((todayTransactions ?? []).map((t) => t.tenant_id));
-
-  return {
-    superAdmin,
-    stats: {
-      totalTenants: tenantList.length,
-      activeTenantsCount: activeTenants.length,
-      inactiveTenantsCount: inactiveTenants.length,
-      totalCashiers: totalCashiersCount?.length ?? 0,
-      totalTransactions: allTransactions?.length ?? 0,
-      totalOmzet,
-      todayTransactionsCount: todayTransactions?.length ?? 0,
-      todayOmzet,
-      activeTenantsTodayCount: activeTenantIdsToday.size,
-      activeDevicesCount: activeDevices?.length ?? 0,
-      expiringSoonCount: expiringSoon.length,
-    },
-    expiringSoonTenants: expiringSoon,
-    recentTenants: tenantList.slice(0, 5),
-  };
-});
-
-export const listTenants = createServerFn({ method: "GET" }).handler(async () => {
-  await requireSuperAdminSession();
-  const db = await admin();
-
-  const { data: tenants } = await db
-    .from("tenants")
-    .select("*, packages(name, price)")
-    .eq("is_deleted", false)
-    .order("created_at", { ascending: false });
-
-  return tenants ?? [];
-});
-
-export const getTenantDetailAdmin = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ tenant_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    await requireSuperAdminSession();
-    const db = await admin();
-
-    const [{ data: tenant }, { data: pins }, { data: devices }, { data: productCount }, { data: txnSummary }] =
-      await Promise.all([
-        db.from("tenants").select("*, packages(name, price)").eq("id", data.tenant_id).single(),
-        db.from("access_pins").select("*").eq("tenant_id", data.tenant_id),
-        db.from("tenant_devices").select("*").eq("tenant_id", data.tenant_id).eq("is_active", true),
-        db.from("products").select("id").eq("tenant_id", data.tenant_id),
-        db.from("transactions").select("grand_total").eq("tenant_id", data.tenant_id),
-      ]);
-
-    if (!tenant) throw new Error("Tenant tidak ditemukan");
-
-    const totalTxn = txnSummary?.length ?? 0;
-    const totalOmzet = (txnSummary ?? []).reduce((s, t) => s + Number(t.grand_total || 0), 0);
-
-    return {
-      tenant,
-      pins: pins ?? [],
-      devices: devices ?? [],
-      productCount: productCount?.length ?? 0,
-      totalTxn,
-      totalOmzet,
-    };
-  });
-
-export const createTenant = createServerFn({ method: "POST" })
-  .inputValidator((d) =>
-    z
-      .object({
-        business_name: z.string().min(2),
-        owner_name: z.string().min(2),
-        phone: z.string().min(8),
-        email: z.string().email().optional().nullable(),
-        address: z.string().optional().nullable(),
-        city: z.string().optional().nullable(),
-        business_type: z.string().default("Coffee Shop"),
-        package_id: z.string().uuid().optional().nullable(),
-        start_date: z.string().optional(),
-        duration_months: z.number().int().positive().default(12),
-        notes: z.string().optional().nullable(),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data }) => {
-    const adminSession = await requireSuperAdminSession();
-    const db = await admin();
-
-    // 1. Generate unique 6-character Tenant Code (e.g., KK001, KK002)
-    const prefix = data.business_name.substring(0, 2).toUpperCase().replace(/[^A-Z]/g, "CB");
-    const { data: existingCodes } = await db.from("tenants").select("tenant_code");
-    const count = (existingCodes?.length ?? 0) + 1;
-    const tenant_code = `${prefix}${String(count).padStart(3, "0")}`;
-
-    const startDate = data.start_date ? new Date(data.start_date) : new Date();
-    const expiredAt = new Date(startDate.getTime());
-    expiredAt.setMonth(expiredAt.getMonth() + data.duration_months);
-
-    // 2. Insert Tenant record
-    const { data: tenant, error } = await db
-      .from("tenants")
-      .insert({
-        tenant_code,
-        business_name: data.business_name.trim(),
-        owner_name: data.owner_name.trim(),
-        phone: data.phone.trim(),
-        email: data.email?.trim() || null,
-        address: data.address?.trim() || null,
-        city: data.city?.trim() || null,
-        business_type: data.business_type,
-        package_id: data.package_id || null,
-        start_date: startDate.toISOString(),
-        expired_at: expiredAt.toISOString(),
-        status: "active",
-        notes: data.notes?.trim() || null,
-      })
-      .select("*")
-      .single();
-
-    if (error || !tenant) throw new Error(error?.message || "Gagal membuat UKM baru");
-
-    // 3. Generate 4 Random 6-Digit Access PINs
-    const pinAdmin = generateRandomPin();
-    const pinCashier = generateRandomPin();
-    const pinCustomerDisplay = generateRandomPin();
-    const pinQueueDisplay = generateRandomPin();
-
-    const pinsToInsert = [
-      { tenant_id: tenant.id, role: "tenant_admin", pin_raw: pinAdmin, pin_hash: pinAdmin },
-      { tenant_id: tenant.id, role: "cashier", pin_raw: pinCashier, pin_hash: pinCashier },
-      { tenant_id: tenant.id, role: "customer_display", pin_raw: pinCustomerDisplay, pin_hash: pinCustomerDisplay },
-      { tenant_id: tenant.id, role: "queue_display", pin_raw: pinQueueDisplay, pin_hash: pinQueueDisplay },
-    ];
-
-    await db.from("access_pins").insert(pinsToInsert);
-
-    // 4. Create default Store Settings for tenant
-    await db.from("store_settings").insert({
-      tenant_id: tenant.id,
-      store_name: tenant.business_name,
-      receipt_footer: "Terima kasih telah berbelanja di " + tenant.business_name,
-      display_header: "STATUS PESANAN - " + tenant.business_name,
-    });
-
-    await logAuditEvent(adminSession.email, "CREATE_TENANT", tenant.id, {
-      tenant_code,
-      business_name: data.business_name,
-    });
-
-    return {
-      ok: true as const,
-      tenant,
-      pins: {
-        admin_pin: pinAdmin,
-        cashier_pin: pinCashier,
-        customer_display_pin: pinCustomerDisplay,
-        queue_display_pin: pinQueueDisplay,
-      },
-    };
-  });
-
-export const resetTenantPin = createServerFn({ method: "POST" })
-  .inputValidator((d) =>
-    z
-      .object({
-        tenant_id: z.string().uuid(),
-        role: z.enum(["tenant_admin", "cashier", "customer_display", "queue_display"]),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data }) => {
-    const adminSession = await requireSuperAdminSession();
-    const db = await admin();
-
-    const newPin = generateRandomPin();
-
-    await db.from("access_pins").upsert({
-      tenant_id: data.tenant_id,
-      role: data.role,
-      pin_raw: newPin,
-      pin_hash: newPin,
-      updated_at: new Date().toISOString(),
-    });
-
-    await logAuditEvent(adminSession.email, "RESET_PIN", data.tenant_id, {
-      role: data.role,
-      new_pin: newPin,
-    });
-
-    return { ok: true as const, role: data.role, newPin };
-  });
-
-export const extendTenantExpiry = createServerFn({ method: "POST" })
-  .inputValidator((d) =>
-    z
-      .object({
-        tenant_id: z.string().uuid(),
-        add_months: z.number().int().positive(),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data }) => {
-    const adminSession = await requireSuperAdminSession();
-    const db = await admin();
-
-    const { data: tenant } = await db.from("tenants").select("expired_at").eq("id", data.tenant_id).single();
-    if (!tenant) throw new Error("Tenant tidak ditemukan");
-
-    const currentExpiry = new Date(tenant.expired_at) > new Date() ? new Date(tenant.expired_at) : new Date();
-    currentExpiry.setMonth(currentExpiry.getMonth() + data.add_months);
-
-    await db
-      .from("tenants")
-      .update({
-        expired_at: currentExpiry.toISOString(),
-        status: "active",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", data.tenant_id);
-
-    await logAuditEvent(adminSession.email, "EXTEND_EXPIRY", data.tenant_id, {
-      add_months: data.add_months,
-      new_expiry: currentExpiry.toISOString(),
-    });
-
-    return { ok: true as const, newExpiry: currentExpiry.toISOString() };
-  });
-
-export const softDeleteTenant = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ tenant_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const adminSession = await requireSuperAdminSession();
-    const db = await admin();
-
-    await db.from("tenants").update({ is_deleted: true, status: "inactive" }).eq("id", data.tenant_id);
-
-    await logAuditEvent(adminSession.email, "DELETE_TENANT", data.tenant_id);
-
-    return { ok: true as const };
-  });
-
-export const listPackages = createServerFn({ method: "GET" }).handler(async () => {
-  const db = await admin();
-  const { data } = await db.from("packages").select("*").order("price");
-  return data ?? [];
-});
-
-export const listAuditLogs = createServerFn({ method: "GET" }).handler(async () => {
-  await requireSuperAdminSession();
-  const db = await admin();
-  const { data } = await db.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(50);
-  return data ?? [];
-});
-
-/* ============================================================================
-   TENANT OPERATIONAL FUNCTIONS (/app/admin & /app/kasir)
-   ============================================================================ */
+/* ------------------------------- CATALOG ------------------------------- */
 
 export const listCatalog = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await requireTenantSession();
+  const staff = await requireStaff();
   const db = await admin();
-
   const [cats, prods] = await Promise.all([
-    db.from("categories").select("*").eq("tenant_id", session.tenantId).eq("is_active", true).order("sort_order"),
-    db.from("products").select("*").eq("tenant_id", session.tenantId).eq("is_active", true).order("name"),
+    db.from("categories").select("*").eq("tenant_id", staff.tenantId).eq("is_active", true).order("sort_order"),
+    db.from("products").select("*").eq("tenant_id", staff.tenantId).eq("is_active", true).order("name"),
   ]);
-
-  return {
-    categories: cats.data ?? [],
-    products: await signImages(db, prods.data ?? []),
-    tenant: {
-      name: session.businessName,
-      code: session.tenantCode,
-    },
-  };
+  return { categories: cats.data ?? [], products: await signImages(db, prods.data ?? []) };
 });
+
+/* ------------------------------ CHECKOUT ------------------------------- */
 
 const CheckoutSchema = z.object({
   items: z
@@ -347,12 +45,11 @@ const CheckoutSchema = z.object({
 export const checkout = createServerFn({ method: "POST" })
   .inputValidator((d) => CheckoutSchema.parse(d))
   .handler(async ({ data }) => {
-    const session = await requireTenantSession();
+    const staff = await requireStaff();
     const db = await admin();
-
-    const { data: result, error } = await db.rpc("create_pos_transaction_multi", {
-      _tenant_id: session.tenantId,
-      _cashier_id: session.staffId,
+    const { data: result, error } = await db.rpc("create_pos_transaction_tenant", {
+      _tenant_id: staff.tenantId,
+      _cashier_id: staff.id,
       _customer_name: data.customer_name ?? "",
       _order_type: data.order_type,
       _discount: data.discount,
@@ -363,242 +60,33 @@ export const checkout = createServerFn({ method: "POST" })
     });
 
     if (error) throw new Error(error.message.replace(/^.*ERROR:\s*/i, ""));
-
-    const receipt = await buildReceipt(result.transaction_id);
+    const out = result as unknown as { transaction_id: string; queue_number: number };
+    const receipt = await buildReceipt(out.transaction_id);
     return receipt;
   });
 
-/* ============================================================================
-   ADMIN KASIR / OWNER UKM MANAGEMENT (/app/admin)
-   ============================================================================ */
-
-export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await requireTenantAdminSession();
-  const db = await admin();
-
-  const todayStr = today();
-
-  const [{ data: products }, { data: todayTxns }, { data: todayQueues }] = await Promise.all([
-    db.from("products").select("*").eq("tenant_id", session.tenantId),
-    db.from("transactions").select("*").eq("tenant_id", session.tenantId).gte("created_at", todayStr),
-    db.from("queues").select("*").eq("tenant_id", session.tenantId).eq("queue_date", todayStr),
-  ]);
-
-  const productList = products ?? [];
-  const lowStock = productList.filter((p) => p.stock <= p.minimum_stock);
-  const outOfStock = productList.filter((p) => p.stock <= 0);
-
-  const txns = todayTxns ?? [];
-  const todayOmzet = txns.reduce((s, t) => s + Number(t.grand_total || 0), 0);
-
-  const queues = todayQueues ?? [];
-  const activeOrders = queues.filter((q) => q.status === "baru" || q.status === "diproses");
-  const completedOrders = queues.filter((q) => q.status === "selesai" || q.status === "diambil");
-
-  return {
-    tenant: session.tenant,
-    stats: {
-      todayOmzet,
-      todayTxnCount: txns.length,
-      totalProducts: productList.length,
-      lowStockCount: lowStock.length,
-      outOfStockCount: outOfStock.length,
-      activeOrdersCount: activeOrders.length,
-      completedOrdersCount: completedOrders.length,
-    },
-    lowStockProducts: lowStock,
-    activeOrders,
-  };
-});
-
-const ProductSchema = z.object({
-  id: z.string().uuid().optional(),
-  name: z.string().min(1, "Nama wajib diisi"),
-  category_id: z.string().uuid().optional().nullable(),
-  selling_price: z.number().min(0, "Harga jual minimal 0"),
-  cost_price: z.number().min(0, "Harga modal minimal 0").default(0),
-  minimum_stock: z.number().int().min(0).default(5),
-  unit: z.string().default("pcs"),
-  sku: z.string().optional().nullable(),
-  barcode: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
-  image_url: z.string().optional().nullable(),
-  is_available: z.boolean().default(true),
-  is_active: z.boolean().default(true),
-  initial_stock: z.number().int().min(0).optional(),
-});
-
-export const upsertProduct = createServerFn({ method: "POST" })
-  .inputValidator((d) => ProductSchema.parse(d))
+export const getReceipt = createServerFn({ method: "GET" })
+  .inputValidator((d) => z.object({ transaction_id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
-    const session = await requireTenantAdminSession();
-    const db = await admin();
-
-    const payload = {
-      tenant_id: session.tenantId,
-      name: data.name.trim(),
-      category_id: data.category_id || null,
-      selling_price: data.selling_price,
-      cost_price: data.cost_price,
-      minimum_stock: data.minimum_stock,
-      unit: data.unit,
-      sku: data.sku || null,
-      barcode: data.barcode || null,
-      description: data.description || null,
-      image_url: data.image_url ?? null,
-      is_available: data.is_available,
-      is_active: data.is_active,
-    };
-
-    if (data.id) {
-      const { error } = await db.from("products").update(payload).eq("id", data.id).eq("tenant_id", session.tenantId);
-      if (error) throw new Error(error.message);
-      return { ok: true, id: data.id };
-    } else {
-      const stock = data.initial_stock ?? 0;
-      const { data: newProd, error } = await db
-        .from("products")
-        .insert({ ...payload, stock })
-        .select()
-        .single();
-      if (error || !newProd) throw new Error(error?.message || "Gagal membuat produk");
-
-      if (stock > 0) {
-        await db.from("stock_movements").insert({
-          tenant_id: session.tenantId,
-          product_id: newProd.id,
-          movement_type: "masuk",
-          quantity_before: 0,
-          quantity_change: stock,
-          quantity_after: stock,
-          reason: "Stok awal produk baru",
-          created_by: session.staffId,
-          created_by_name: session.name,
-        });
-      }
-
-      return { ok: true, id: newProd.id };
-    }
+    await requireStaff();
+    return buildReceipt(data.transaction_id);
   });
 
-export const adjustStock = createServerFn({ method: "POST" })
-  .inputValidator((d) =>
-    z
-      .object({
-        product_id: z.string().uuid(),
-        movement_type: z.enum(["masuk", "penjualan", "penyesuaian", "rusak", "pembatalan", "retur", "koreksi"]),
-        quantity_change: z.number().int(),
-        reason: z.string().min(1, "Alasan wajib diisi"),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data }) => {
-    const session = await requireTenantAdminSession();
-    const db = await admin();
+/* --------------------------- ACTIVE ORDERS ---------------------------- */
 
-    const { data: prod } = await db
-      .from("products")
-      .select("stock, name")
-      .eq("id", data.product_id)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (!prod) throw new Error("Produk tidak ditemukan");
-
-    const before = prod.stock;
-    const after = before + data.quantity_change;
-    if (after < 0) throw new Error("Stok tidak boleh minus");
-
-    await db
-      .from("products")
-      .update({ stock: after, updated_at: new Date().toISOString() })
-      .eq("id", data.product_id)
-      .eq("tenant_id", session.tenantId);
-
-    await db.from("stock_movements").insert({
-      tenant_id: session.tenantId,
-      product_id: data.product_id,
-      movement_type: data.movement_type,
-      quantity_before: before,
-      quantity_change: data.quantity_change,
-      quantity_after: after,
-      reason: data.reason.trim(),
-      created_by: session.staffId,
-      created_by_name: session.name,
-    });
-
-    return { ok: true as const, stock: after };
-  });
-
-export const listStockMovements = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await requireTenantAdminSession();
+export const listActiveOrders = createServerFn({ method: "GET" }).handler(async () => {
+  const staff = await requireStaff();
   const db = await admin();
-
   const { data } = await db
-    .from("stock_movements")
-    .select("*, products(name, unit)")
-    .eq("tenant_id", session.tenantId)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  return data ?? [];
-});
-
-export const deleteProduct = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const session = await requireTenantAdminSession();
-    const db = await admin();
-
-    const { error } = await db.from("products").delete().eq("id", data.id).eq("tenant_id", session.tenantId);
-    if (error) throw new Error("Produk tidak dapat dihapus jika sudah memiliki riwayat transaksi.");
-
-    return { ok: true as const };
-  });
-
-/* ============================================================================
-   CUSTOMER DISPLAY & QUEUE DISPLAY SERVERS (/display/customer & /display/antrian)
-   ============================================================================ */
-
-export const getCustomerDisplayContext = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await requireTenantSession();
-  const db = await admin();
-
-  const [{ data: tenant }, { data: contents }, { data: promos }] = await Promise.all([
-    db.from("tenants").select("business_name, logo_url, primary_color, accent_color, qris_image_url").eq("id", session.tenantId).single(),
-    db.from("display_contents").select("*").eq("tenant_id", session.tenantId).eq("is_active", true).order("sort_order"),
-    db.from("promotions").select("*").eq("tenant_id", session.tenantId).eq("is_active", true).eq("show_on_display", true),
-  ]);
-
-  return {
-    tenant: tenant ?? { business_name: session.businessName },
-    displayContents: contents ?? [],
-    promotions: promos ?? [],
-  };
-});
-
-export const getQueueDisplayData = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await requireTenantSession();
-  const db = await admin();
-  const todayStr = today();
-
-  const { data: queues } = await db
     .from("queues")
-    .select("*")
-    .eq("tenant_id", session.tenantId)
-    .eq("queue_date", todayStr)
+    .select(
+      "id, queue_number, status, customer_name, created_at, started_at, completed_at, transaction_id, transactions(transaction_number, grand_total, order_type, payment_method, notes, cashier_name, transaction_items(product_name_snapshot, quantity, notes))",
+    )
+    .eq("tenant_id", staff.tenantId)
+    .eq("queue_date", today())
     .in("status", ["baru", "diproses", "selesai"])
-    .order("queue_number", { ascending: true });
-
-  const list = queues ?? [];
-  const processing = list.filter((q) => q.status === "baru" || q.status === "diproses");
-  const completed = list.filter((q) => q.status === "selesai");
-
-  return {
-    tenantName: session.businessName,
-    processing,
-    completed,
-  };
+    .order("queue_number");
+  return data ?? [];
 });
 
 export const updateOrderStatus = createServerFn({ method: "POST" })
@@ -611,9 +99,8 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const session = await requireTenantSession();
+    const staff = await requireStaff();
     const db = await admin();
-
     const stamp: Record<string, string> = {};
     if (data.status === "diproses") stamp.started_at = new Date().toISOString();
     if (data.status === "selesai") stamp.completed_at = new Date().toISOString();
@@ -623,74 +110,474 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
       .from("queues")
       .update({ status: data.status, ...stamp })
       .eq("id", data.queue_id)
-      .eq("tenant_id", session.tenantId);
+      .eq("tenant_id", staff.tenantId);
 
     if (error) throw new Error(error.message);
 
-    return { ok: true as const };
+    if (data.status === "dibatalkan") {
+      const { data: q } = await db.from("queues").select("transaction_id").eq("id", data.queue_id).maybeSingle();
+      if (q) {
+        await db
+          .from("transactions")
+          .update({ transaction_status: "cancelled", payment_status: "refunded" })
+          .eq("id", q.transaction_id)
+          .eq("tenant_id", staff.tenantId);
+      }
+    }
+    return { ok: true };
   });
 
-export const getOmzetReportData = createServerFn({ method: "POST" })
+export const resetQueueNumbers = createServerFn({ method: "POST" }).handler(async () => {
+  const staff = await requireAdmin();
+  const db = await admin();
+  await db.from("queues").delete().eq("tenant_id", staff.tenantId).eq("queue_date", today());
+  return { ok: true };
+});
+
+/* ----------------------------- TRANSACTIONS ---------------------------- */
+
+export const listTransactions = createServerFn({ method: "GET" })
+  .inputValidator((d) => z.object({ from: z.string().optional(), to: z.string().optional() }).parse(d ?? {}))
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    let q = db
+      .from("transactions")
+      .select("*, transaction_items(*), queues(queue_number, status)")
+      .eq("tenant_id", staff.tenantId)
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (data.from) q = q.gte("created_at", data.from);
+    if (data.to) q = q.lte("created_at", data.to);
+    const { data: rows } = await q;
+    return rows ?? [];
+  });
+
+/** Kasir: only their own transactions from the current day. */
+export const listMyRecentTransactions = createServerFn({ method: "GET" }).handler(async () => {
+  const staff = await requireStaff();
+  const db = await admin();
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { data } = await db
+    .from("transactions")
+    .select("id, transaction_number, grand_total, payment_method, created_at, customer_name, queues(queue_number, status)")
+    .eq("tenant_id", staff.tenantId)
+    .eq("cashier_id", staff.id)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  return data ?? [];
+});
+
+/* ------------------------------- PRODUCTS ------------------------------ */
+
+const ProductSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().min(1).max(200),
+  category_id: z.string().uuid().nullable(),
+  selling_price: z.number().min(0),
+  cost_price: z.number().min(0).default(0),
+  minimum_stock: z.number().int().min(0).default(5),
+  unit: z.string().min(1).max(50).default("pcs"),
+  sku: z.string().max(100).nullable().optional(),
+  barcode: z.string().max(100).nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
+  image_url: z.string().nullable().optional(),
+  is_available: z.boolean().default(true),
+  is_active: z.boolean().default(true),
+  initial_stock: z.number().int().min(0).optional(),
+});
+
+export const upsertProduct = createServerFn({ method: "POST" })
+  .inputValidator((d) => ProductSchema.parse(d))
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const payload = {
+      tenant_id: staff.tenantId,
+      name: data.name.trim(),
+      category_id: data.category_id,
+      selling_price: data.selling_price,
+      cost_price: data.cost_price,
+      minimum_stock: data.minimum_stock,
+      unit: data.unit,
+      sku: data.sku || null,
+      barcode: data.barcode || null,
+      description: data.description || null,
+      image_url: data.image_url ?? null,
+      is_available: data.is_available,
+      is_active: data.is_active,
+    };
+    if (data.id) {
+      const { error } = await db.from("products").update(payload).eq("id", data.id).eq("tenant_id", staff.tenantId);
+      if (error) throw new Error(error.message);
+      return { ok: true, id: data.id };
+    }
+    const { data: created, error } = await db.from("products").insert({ ...payload, stock: 0 }).select("id").single();
+    if (error || !created) throw new Error(error?.message || "Gagal menyimpan produk");
+    if (data.initial_stock && data.initial_stock > 0) {
+      await db.rpc("adjust_stock", {
+        _product_id: created.id,
+        _movement_type: "masuk",
+        _quantity: data.initial_stock,
+        _reason: "Stok awal produk baru",
+        _staff_id: staff.id,
+        _cost_price: data.cost_price || undefined,
+        _supplier: undefined,
+        _absolute: false,
+      });
+    }
+    return { ok: true, id: created.id };
+  });
+
+export const deleteProduct = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const { error } = await db.from("products").delete().eq("id", data.id).eq("tenant_id", staff.tenantId);
+    if (error) throw new Error("Produk sudah pernah terjual sehingga tidak dapat dihapus. Nonaktifkan produk saja.");
+    return { ok: true };
+  });
+
+export const uploadProductImage = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z
+      .object({
+        file_base64: z.string().min(10),
+        content_type: z.enum(["image/jpeg", "image/png", "image/webp"]),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const bytes = Buffer.from(data.file_base64, "base64");
+    if (bytes.byteLength > 5 * 1024 * 1024) throw new Error("Ukuran foto melebihi 5 MB");
+    const ext = data.content_type === "image/png" ? "png" : data.content_type === "image/webp" ? "webp" : "jpg";
+    const path = `${staff.tenantId}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await db.storage.from("product-images").upload(path, bytes, {
+      contentType: data.content_type,
+      upsert: true,
+    });
+    if (error) throw new Error(error.message);
+    return { path };
+  });
+
+export const removeProductImage = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ path: z.string().min(1) }).parse(d))
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const db = await admin();
+    await db.storage.from("product-images").remove([data.path]);
+    return { ok: true };
+  });
+
+/* ------------------------------ CATEGORIES ----------------------------- */
+
+export const listCategories = createServerFn({ method: "GET" }).handler(async () => {
+  const staff = await requireStaff();
+  const db = await admin();
+  const { data } = await db.from("categories").select("*").eq("tenant_id", staff.tenantId).order("sort_order");
+  return data ?? [];
+});
+
+export const upsertCategory = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid().optional(),
+        name: z.string().min(1).max(60),
+        sort_order: z.number().int().min(0).default(0),
+        is_active: z.boolean().default(true),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const payload = { tenant_id: staff.tenantId, name: data.name.trim(), sort_order: data.sort_order, is_active: data.is_active };
+    const { error } = data.id
+      ? await db.from("categories").update(payload).eq("id", data.id).eq("tenant_id", staff.tenantId)
+      : await db.from("categories").insert(payload);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteCategory = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const { count } = await db
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", staff.tenantId)
+      .eq("category_id", data.id);
+    if ((count ?? 0) > 0) throw new Error("Kategori masih dipakai produk. Pindahkan produk terlebih dahulu.");
+    const { error } = await db.from("categories").delete().eq("id", data.id).eq("tenant_id", staff.tenantId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* -------------------------------- STAFF / USERS ------------------------ */
+
+export const listCashiers = createServerFn({ method: "GET" }).handler(async () => {
+  const staff = await requireAdmin();
+  const db = await admin();
+  const { data } = await db
+    .from("tenant_members")
+    .select("*")
+    .eq("tenant_id", staff.tenantId)
+    .order("name");
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    name: m.name,
+    pin: m.encrypted_pin || m.pin_hash || "••••",
+    role: m.role === "tenant_admin" ? ("admin" as const) : ("kasir" as const),
+    is_active: m.is_active,
+  }));
+});
+
+export const upsertStaff = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid().optional(),
+        name: z.string().min(1),
+        pin: z.string().min(4).max(8),
+        role: z.enum(["admin", "kasir"]),
+        is_active: z.boolean().default(true),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const roleMap = data.role === "admin" ? "tenant_admin" : "cashier";
+    const payload = {
+      tenant_id: staff.tenantId,
+      name: data.name.trim(),
+      pin_hash: data.pin,
+      encrypted_pin: data.pin,
+      role: roleMap,
+      is_active: data.is_active,
+    };
+    const { error } = data.id
+      ? await db.from("tenant_members").update(payload).eq("id", data.id).eq("tenant_id", staff.tenantId)
+      : await db.from("tenant_members").insert(payload);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteStaff = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const { error } = await db
+      .from("tenant_members")
+      .update({ is_active: false })
+      .eq("id", data.id)
+      .eq("tenant_id", staff.tenantId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* -------------------------------- STOCK -------------------------------- */
+
+export const listStock = createServerFn({ method: "GET" }).handler(async () => {
+  const staff = await requireAdmin();
+  const db = await admin();
+  const { data } = await db.from("products").select("*").eq("tenant_id", staff.tenantId).order("name");
+  return data ?? [];
+});
+
+export const postStockAdjustment = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z
+      .object({
+        product_id: z.string().uuid(),
+        movement_type: z.enum(["masuk", "penyesuaian", "rusak", "koreksi"]),
+        quantity: z.number().int(),
+        reason: z.string().max(300).optional(),
+        cost_price: z.number().min(0).optional(),
+        supplier: z.string().max(100).optional(),
+        absolute: z.boolean().default(false),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const { data: res, error } = await db.rpc("adjust_stock", {
+      _product_id: data.product_id,
+      _movement_type: data.movement_type,
+      _quantity: data.quantity,
+      _reason: data.reason ?? "",
+      _staff_id: staff.id,
+      _cost_price: data.cost_price,
+      _supplier: data.supplier,
+      _absolute: data.absolute,
+    });
+    if (error) throw new Error(error.message);
+    return res;
+  });
+
+export const listStockMovements = createServerFn({ method: "GET" })
+  .inputValidator((d) => z.object({ product_id: z.string().uuid().optional() }).parse(d ?? {}))
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    let q = db
+      .from("stock_movements")
+      .select("*, products(name, unit)")
+      .eq("tenant_id", staff.tenantId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (data.product_id) q = q.eq("product_id", data.product_id);
+    const { data: rows } = await q;
+    return rows ?? [];
+  });
+
+/* ------------------------------- REVENUE ------------------------------- */
+
+export const fetchRevenueReport = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ from: z.string(), to: z.string() }).parse(d))
   .handler(async ({ data }) => {
-    const session = await requireTenantAdminSession();
-    const txns = await fetchPaidTransactions(session.tenantId, data.from, data.to);
+    const staff = await requireAdmin();
+    const txns = await fetchPaidTransactions(data.from, data.to, staff.tenantId);
+    let grossRevenue = 0;
+    let netRevenue = 0;
+    let totalDiscount = 0;
 
-    const totalGrand = txns.reduce((s, t) => s + Number(t.grand_total || 0), 0);
-    const totalTxn = txns.length;
+    const methodStats: Record<string, { count: number; total: number }> = {};
+    const productStats: Record<string, { id: string; name: string; qty: number; total: number }> = {};
+
+    for (const t of txns) {
+      const g = Number(t.grand_total);
+      const sub = Number(t.subtotal);
+      const disc = Number(t.discount);
+
+      grossRevenue += sub;
+      netRevenue += g;
+      totalDiscount += disc;
+
+      const m = t.payment_method || "tunai";
+      if (!methodStats[m]) methodStats[m] = { count: 0, total: 0 };
+      methodStats[m].count += 1;
+      methodStats[m].total += g;
+
+      const items = (t as any).transaction_items ?? [];
+      for (const it of items) {
+        const pid = it.product_id || it.product_name_snapshot;
+        if (!productStats[pid]) {
+          productStats[pid] = { id: pid, name: it.product_name_snapshot, qty: 0, total: 0 };
+        }
+        productStats[pid].qty += Number(it.quantity);
+        productStats[pid].total += Number(it.subtotal);
+      }
+    }
+
+    const topProducts = Object.values(productStats)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
 
     return {
-      txns,
-      totalGrand,
-      totalTxn,
+      transactionCount: txns.length,
+      grossRevenue,
+      netRevenue,
+      totalDiscount,
+      methodStats,
+      topProducts,
+      transactions: txns,
     };
   });
 
-/* ============================================================================
-   BACKWARD COMPATIBILITY EXPORTS FOR LEGACY ROUTE FILES
-   ============================================================================ */
+/* ------------------------------ DASHBOARD ------------------------------ */
 
-export const dashboardSummary = createServerFn({ method: "GET" }).handler(async () => {
+export const fetchDashboardStats = createServerFn({ method: "GET" }).handler(async () => {
+  const staff = await requireAdmin();
+  const db = await admin();
+  const todayStr = today();
+
+  const [{ data: txnsToday }, { data: lowStock }, { data: activeQueues }] = await Promise.all([
+    db
+      .from("transactions")
+      .select("grand_total")
+      .eq("tenant_id", staff.tenantId)
+      .eq("payment_status", "paid")
+      .gte("created_at", todayStr),
+    db
+      .from("products")
+      .select("id, name, stock, minimum_stock, unit")
+      .eq("tenant_id", staff.tenantId)
+      .eq("is_active", true),
+    db
+      .from("queues")
+      .select("id")
+      .eq("tenant_id", staff.tenantId)
+      .eq("queue_date", todayStr)
+      .in("status", ["baru", "diproses"]),
+  ]);
+
+  const omzetHariIni = (txnsToday ?? []).reduce((acc, t) => acc + Number(t.grand_total), 0);
+  const transaksiHariIni = txnsToday?.length ?? 0;
+  const stokMenipis = (lowStock ?? []).filter((p) => p.stock <= p.minimum_stock);
+
   return {
-    omzetToday: 0,
-    countToday: 0,
-    itemsToday: 0,
-    processing: 0,
-    completed: 0,
-    lowStock: [],
-    outOfStock: [],
-    productCount: 0,
-    topProducts: [],
+    omzetHariIni,
+    transaksiHariIni,
+    stokMenipisCount: stokMenipis.length,
+    stokMenipisList: stokMenipis,
+    activeQueuesCount: activeQueues?.length ?? 0,
   };
 });
 
-export const listCategories = createServerFn({ method: "GET" }).handler(async () => []);
-export const upsertCategory = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
-export const deleteCategory = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
+/* ---------------------------- STORE SETTINGS --------------------------- */
 
-export const listUsers = createServerFn({ method: "GET" }).handler(async () => []);
-export const upsertUser = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
-export const deleteUser = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
+export const getStoreSettings = createServerFn({ method: "GET" }).handler(async () => {
+  const staff = await requireStaff();
+  const db = await admin();
+  const { data } = await db.from("store_settings").select("*").eq("tenant_id", staff.tenantId).limit(1).maybeSingle();
+  return data ?? null;
+});
 
-export const listStaff = createServerFn({ method: "GET" }).handler(async () => []);
-export const listCashiers = createServerFn({ method: "GET" }).handler(async () => []);
-export const upsertStaff = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
-export const deleteStaff = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
+export const updateStoreSettings = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z
+      .object({
+        store_name: z.string().min(1).max(100),
+        address: z.string().max(300).nullable().optional(),
+        phone: z.string().max(50).nullable().optional(),
+        receipt_footer: z.string().max(300),
+        display_header: z.string().max(100),
+        display_footer: z.string().max(300),
+        queue_reset_mode: z.enum(["harian", "manual"]).default("harian"),
+        display_pin: z.string().min(4).max(10).default("9999"),
+        sound_enabled: z.boolean().default(true),
+        sound_volume: z.number().min(0).max(1).default(1),
+        completed_display_duration: z.number().int().min(10).default(300),
+        max_display_items: z.number().int().min(1).max(30).default(10),
+        show_customer_name: z.boolean().default(true),
+        show_clock: z.boolean().default(true),
+        receipt_paper: z.enum(["58mm", "80mm"]).default("80mm"),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const staff = await requireAdmin();
+    const db = await admin();
+    const { data: existing } = await db.from("store_settings").select("id").eq("tenant_id", staff.tenantId).limit(1).maybeSingle();
+    const payload = { ...data, tenant_id: staff.tenantId };
+    const { error } = existing
+      ? await db.from("store_settings").update(payload).eq("id", existing.id)
+      : await db.from("store_settings").insert(payload);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
 
-export const getStoreSettings = createServerFn({ method: "GET" }).handler(async () => ({
-  store_name: "GEN-CB Kasir",
-  receipt_footer: "Terima kasih telah berbelanja.",
-}));
-export const updateStoreSettings = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
-export const resetQueueNumbers = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
-
-export const uploadProductImage = createServerFn({ method: "POST" }).handler(async () => ({ path: "sample.jpg" }));
-export const removeProductImage = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
-
-export const fetchOmzetData = createServerFn({ method: "POST" }).handler(async () => ({ summary: {}, transactions: [] }));
-export const omzetReport = createServerFn({ method: "POST" }).handler(async () => ({ summary: {}, transactions: [] }));
-export const listTransactions = createServerFn({ method: "GET" }).handler(async () => []);
-export const fetchActiveOrders = createServerFn({ method: "GET" }).handler(async () => ({ orders: [] }));
-export const listActiveOrders = createServerFn({ method: "GET" }).handler(async () => ({ orders: [] }));
-export const changeStock = createServerFn({ method: "POST" }).handler(async () => ({ ok: true }));
-export const listStock = createServerFn({ method: "GET" }).handler(async () => []);
+/* ------------------ EXPORT ALIASES FOR BACKWARD COMPAT ----------------- */
+export const dashboardSummary = fetchDashboardStats;
+export const changeStock = postStockAdjustment;
+export const omzetReport = fetchRevenueReport;

@@ -1,13 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Clock, Play, ShoppingBag, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Play, ShoppingBag, Volume2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { getCurrentStaff } from "@/lib/auth.functions";
 import { rupiah } from "@/lib/format";
 import { listActiveOrders, updateOrderStatus } from "@/lib/pos.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/pesanan-aktif")({
   head: () => ({ meta: [{ title: "Pesanan Aktif — Gen CB Kasir" }] }),
@@ -45,7 +46,7 @@ function PesananAktifPage() {
         newStatus === "diproses"
           ? "Pesanan mulai diproses"
           : newStatus === "selesai"
-          ? "Pesanan ditandai selesai"
+          ? "Pesanan ditandai selesai & suara pemanggilan dikirim"
           : newStatus === "diambil"
           ? "Pesanan sudah diambil"
           : "Pesanan dibatalkan",
@@ -53,6 +54,32 @@ function PesananAktifPage() {
       refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal mengubah status");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleRecall = async (queueId: string, queueNo: number) => {
+    setBusyId(queueId);
+    try {
+      const tenantId = staff?.tenantId || "00000000-0000-0000-0000-000000000001";
+      const channel = supabase.channel(`tenant:${tenantId}:queues-display`);
+      await channel.send({
+        type: "broadcast",
+        event: "recall_queue",
+        payload: { queue_number: queueNo },
+      });
+
+      await supabase
+        .from("queues")
+        .update({
+          last_recalled_at: new Date().toISOString(),
+        })
+        .eq("id", queueId);
+
+      toast.success(`Suara pemanggilan ulang antrean #${String(queueNo).padStart(3, "0")} dikirim!`);
+    } catch (err) {
+      toast.error("Gagal mengirim pemanggilan ulang");
     } finally {
       setBusyId(null);
     }
@@ -159,7 +186,7 @@ function PesananAktifPage() {
                       </span>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {q.status === "baru" && (
                         <button
                           disabled={isBusy}
@@ -181,13 +208,23 @@ function PesananAktifPage() {
                       )}
 
                       {q.status === "selesai" && (
-                        <button
-                          disabled={isBusy}
-                          onClick={() => handleUpdate(q.id, "diambil")}
-                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-500 py-3 text-xs font-extrabold text-white shadow-md transition hover:bg-sky-600 active:scale-95 disabled:opacity-50"
-                        >
-                          <CheckCircle2 className="h-4 w-4" /> Sudah Diambil
-                        </button>
+                        <>
+                          <button
+                            disabled={isBusy}
+                            onClick={() => handleRecall(q.id, q.queue_number)}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-amber-500 py-3 px-3 text-xs font-extrabold text-white shadow-md transition hover:bg-amber-600 active:scale-95 disabled:opacity-50"
+                            title="Panggil Ulang Suara"
+                          >
+                            <Volume2 className="h-4 w-4" /> Panggil Ulang
+                          </button>
+                          <button
+                            disabled={isBusy}
+                            onClick={() => handleUpdate(q.id, "diambil")}
+                            className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-500 py-3 text-xs font-extrabold text-white shadow-md transition hover:bg-sky-600 active:scale-95 disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="h-4 w-4" /> Sudah Diambil
+                          </button>
+                        </>
                       )}
 
                       <button
