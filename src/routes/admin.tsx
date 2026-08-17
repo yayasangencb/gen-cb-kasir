@@ -86,6 +86,7 @@ function SuperAdminPage() {
     queryKey: ["super-admin-metrics"],
     queryFn: () => fetchMetrics({}),
     enabled: isSuperAdmin,
+    refetchInterval: 5000,
   });
 
   const { data: tenantDetail, refetch: refetchDetail } = useQuery({

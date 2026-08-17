@@ -75,7 +75,7 @@ export const createTenantAccount = createServerFn({ method: "POST" })
         province: data.province ? data.province.trim() : null,
         status: "active",
         valid_until: validUntil,
-        plan_id: data.plan_id || "11111111-1111-1111-1111-111111111111",
+        plan_id: null,
       })
       .select()
       .single();
