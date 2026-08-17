@@ -34,15 +34,16 @@ import {
   updateTenantStatus,
 } from "@/lib/tenant.server";
 
-export const Route = createFileRoute("/admin/")({
+export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Super Admin Platform — Gen CB Kasir" }] }),
   loader: async () => {
     const staff = await getCurrentStaff();
     return { staff };
   },
+  component: SuperAdminPage,
 });
 
-export default function SuperAdminPage() {
+function SuperAdminPage() {
   const staff = Route.useLoaderData().staff;
   const doLoginSuperAdmin = useServerFn(loginSuperAdmin);
   const doLogout = useServerFn(logout);
@@ -215,6 +216,12 @@ export default function SuperAdminPage() {
               {loginBusy ? "Memverifikasi..." : "Masuk ke Dashboard Platform"}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <a href="/login" className="text-xs font-bold text-muted-foreground hover:text-[color:var(--brand)] transition">
+              ← Kembali ke Login PIN Petugas Kasir
+            </a>
+          </div>
         </div>
       </div>
     );

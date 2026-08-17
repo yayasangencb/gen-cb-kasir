@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as DisplayCustomerRouteImport } from './routes/display-customer'
 import { Route as DisplayPesananRouteImport } from './routes/display-pesanan'
 import { Route as KasirRouteImport } from './routes/kasir'
@@ -22,11 +23,15 @@ import { Route as PesananAktifRouteImport } from './routes/pesanan-aktif'
 import { Route as ProdukRouteImport } from './routes/produk'
 import { Route as StokRouteImport } from './routes/stok'
 import { Route as TransaksiRouteImport } from './routes/transaksi'
-import { Route as AdminIndexRouteImport } from './routes/admin/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DisplayCustomerRoute = DisplayCustomerRouteImport.update({
@@ -89,14 +94,10 @@ const TransaksiRoute = TransaksiRouteImport.update({
   path: '/transaksi',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/display-customer': typeof DisplayCustomerRoute
   '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
@@ -109,10 +110,10 @@ export interface FileRoutesByFullPath {
   '/produk': typeof ProdukRoute
   '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
-  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/display-customer': typeof DisplayCustomerRoute
   '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
@@ -125,11 +126,11 @@ export interface FileRoutesByTo {
   '/produk': typeof ProdukRoute
   '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
-  '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/display-customer': typeof DisplayCustomerRoute
   '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
@@ -142,12 +143,12 @@ export interface FileRoutesById {
   '/produk': typeof ProdukRoute
   '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
-  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/display-customer'
     | '/display-pesanan'
     | '/kasir'
@@ -160,10 +161,10 @@ export interface FileRouteTypes {
     | '/produk'
     | '/stok'
     | '/transaksi'
-    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/display-customer'
     | '/display-pesanan'
     | '/kasir'
@@ -176,10 +177,10 @@ export interface FileRouteTypes {
     | '/produk'
     | '/stok'
     | '/transaksi'
-    | '/admin'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/display-customer'
     | '/display-pesanan'
     | '/kasir'
@@ -192,11 +193,11 @@ export interface FileRouteTypes {
     | '/produk'
     | '/stok'
     | '/transaksi'
-    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   DisplayCustomerRoute: typeof DisplayCustomerRoute
   DisplayPesananRoute: typeof DisplayPesananRoute
   KasirRoute: typeof KasirRoute
@@ -209,7 +210,6 @@ export interface RootRouteChildren {
   ProdukRoute: typeof ProdukRoute
   StokRoute: typeof StokRoute
   TransaksiRoute: typeof TransaksiRoute
-  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -219,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/display-customer': {
@@ -305,18 +312,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TransaksiRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/': {
-      id: '/admin/'
-      path: '/admin'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   DisplayCustomerRoute: DisplayCustomerRoute,
   DisplayPesananRoute: DisplayPesananRoute,
   KasirRoute: KasirRoute,
@@ -329,7 +330,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProdukRoute: ProdukRoute,
   StokRoute: StokRoute,
   TransaksiRoute: TransaksiRoute,
-  AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
