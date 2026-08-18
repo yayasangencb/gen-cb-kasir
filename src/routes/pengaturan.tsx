@@ -1,15 +1,16 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Monitor, Save, Store, Image as ImageIcon, Sparkles, Upload, Info, RefreshCw } from "lucide-react";
+import { Save, Store, Sparkles, Info, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { ImageDropzone } from "@/components/ImageDropzone";
 import { getCurrentStaff } from "@/lib/auth.functions";
 import { getStoreSettings, resetQueueNumbers, updateStoreSettings } from "@/lib/pos.functions";
 
 export const Route = createFileRoute("/pengaturan")({
-  head: () => ({ meta: [{ title: "Pengaturan & Promo Display — Kasir Outlet" }] }),
+  head: () => ({ meta: [{ title: "Pengaturan Toko & Promo Display — Kasir Outlet" }] }),
   beforeLoad: async () => {
     const staff = await getCurrentStaff();
     if (!staff) throw redirect({ to: "/login" });
@@ -20,11 +21,19 @@ export const Route = createFileRoute("/pengaturan")({
   component: PengaturanPage,
 });
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function PengaturanPage() {
   const staff = Route.useLoaderData();
   const fetchSettings = useServerFn(getStoreSettings);
   const saveSettings = useServerFn(updateStoreSettings);
-  const resetQueue = useServerFn(resetQueueNumbers);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-store-settings"],
@@ -32,7 +41,7 @@ function PengaturanPage() {
   });
 
   const [form, setForm] = useState({
-    store_name: staff.outletName || "Kopi Kenangan",
+    store_name: staff.outletName || "Outlet Kasir",
     logo_url: "",
     promo_image_1: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=1600&auto=format&fit=crop",
     promo_title_1: "PROMO KOPI SPESIAL HARI INI",
@@ -61,7 +70,7 @@ function PengaturanPage() {
   useEffect(() => {
     if (data) {
       setForm({
-        store_name: data.store_name || staff.outletName || "Kopi Kenangan",
+        store_name: data.store_name || staff.outletName || "Outlet Kasir",
         logo_url: data.logo_url || "",
         promo_image_1: data.promo_image_1 || "https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=1600&auto=format&fit=crop",
         promo_title_1: data.promo_title_1 || "PROMO KOPI SPESIAL HARI INI",
@@ -92,12 +101,53 @@ function PengaturanPage() {
     setBusy(true);
     try {
       await saveSettings({ data: form });
-      toast.success("Pengaturan logo & banner promo berhasil disimpan!");
+      toast.success("Pengaturan toko & gambar promo berhasil disimpan!");
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan pengaturan");
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Image Selection Handlers (Convert File to Data URL)
+  const handleLogoFile = async (file: File) => {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setForm((f) => ({ ...f, logo_url: dataUrl }));
+      toast.success("Logo toko berhasil dimuat!");
+    } catch (e) {
+      toast.error("Gagal membaca file gambar logo");
+    }
+  };
+
+  const handlePromo1File = async (file: File) => {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setForm((f) => ({ ...f, promo_image_1: dataUrl }));
+      toast.success("Gambar Promo 1 berhasil dimuat!");
+    } catch (e) {
+      toast.error("Gagal membaca gambar Promo 1");
+    }
+  };
+
+  const handlePromo2File = async (file: File) => {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setForm((f) => ({ ...f, promo_image_2: dataUrl }));
+      toast.success("Gambar Promo 2 berhasil dimuat!");
+    } catch (e) {
+      toast.error("Gagal membaca gambar Promo 2");
+    }
+  };
+
+  const handlePromo3File = async (file: File) => {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setForm((f) => ({ ...f, promo_image_3: dataUrl }));
+      toast.success("Gambar Promo 3 berhasil dimuat!");
+    } catch (e) {
+      toast.error("Gagal membaca gambar Promo 3");
     }
   };
 
@@ -107,196 +157,159 @@ function PengaturanPage() {
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-900">Pengaturan Toko & Promo Display</h1>
+            <h1 className="text-3xl font-extrabold text-[#003B8F]">Pengaturan Toko & Drag-and-Drop Gambar</h1>
             <p className="text-xs text-slate-500">
-              Atur logo outlet Anda, gambar banner promosi layar depan, dan profil struk kasir.
+              Unggah logo outlet Anda dan gambar spanduk promosi dengan cara Tarik & Lepas (Drag & Drop) atau pilih foto.
             </p>
           </div>
 
           <button
             onClick={handleSubmit}
             disabled={busy || isLoading}
-            className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 px-5 py-3 text-sm font-black shadow-lg transition disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl text-white px-6 py-3 text-sm font-extrabold shadow-lg transition disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #FF7A00, #FFB000)" }}
           >
             <Save className="h-5 w-5" /> {busy ? "Memproses..." : "Simpan Semua Pengaturan"}
           </button>
         </div>
 
         {isLoading ? (
-          <div className="h-96 animate-pulse rounded-3xl bg-white" />
+          <div className="h-96 animate-pulse rounded-3xl bg-white border border-slate-200" />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* BRANDING OUTLET: LOGO & PROMO MANAGER */}
-            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-border space-y-6">
-              <div className="flex items-center gap-3 border-b border-border pb-4">
-                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-500/10 text-amber-600 font-bold border border-amber-500/20">
-                  <ImageIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-extrabold text-slate-900">Branding Outlet & Promo Display Depan</h2>
-                  <p className="text-xs text-slate-500">
-                    Pengaturan logo toko dan gambar-gambar spanduk promosi yang diputar pada layar display pelanggan (70% area).
-                  </p>
-                </div>
-              </div>
-
-              {/* Logo Outlet Upload / URL */}
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-black text-slate-900 flex items-center gap-2">
-                    <Store className="h-4 w-4 text-amber-600" /> LOGO RESMI OUTLET
-                  </label>
-                  <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1">
-                    <Info className="h-3 w-3" /> Rekomendasi Ukuran: 512 x 512 px (Format PNG Transparan / JPG, Rasio 1:1)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-[100px_1fr] gap-4 items-center">
-                  <div className="h-24 w-24 rounded-2xl bg-white border border-slate-300 grid place-items-center overflow-hidden shadow-inner relative group">
-                    {form.logo_url ? (
-                      <img src={form.logo_url} alt="Logo Outlet" className="h-full w-full object-contain p-2" />
-                    ) : (
-                      <div className="text-center p-2">
-                        <Store className="mx-auto h-8 w-8 text-slate-400 mb-1" />
-                        <div className="text-[9px] font-extrabold text-slate-400 uppercase">Logo Outlet</div>
-                      </div>
-                    )}
+            {/* BRANDING OUTLET: LOGO DROPZONE */}
+            <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-200 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-100 text-[#FF7A00] font-bold border border-amber-300">
+                    <Store className="h-6 w-6" />
                   </div>
-
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      URL Gambar Logo Outlet:
-                    </label>
-                    <input
-                      type="url"
-                      value={form.logo_url}
-                      onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
-                      placeholder="https://domain-anda.com/logo-outlet.png"
-                      className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 font-mono outline-none focus:border-amber-500"
-                    />
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      *Jika dikosongkan, sistem akan menampilkan badge nama toko {form.store_name}. Tanpa logo Gen-CB.
+                    <h2 className="text-lg font-extrabold text-[#003B8F]">1. Logo Resmi Outlet (Drag & Drop)</h2>
+                    <p className="text-xs text-slate-500">
+                      Tarik foto logo outlet dari komputer/perangkat Anda langsung ke dalam area di bawah ini.
                     </p>
                   </div>
                 </div>
+
+                <span className="text-[11px] font-bold text-amber-900 bg-amber-100 px-3 py-1 rounded-full border border-amber-300 flex items-center gap-1">
+                  <Info className="h-3.5 w-3.5 text-[#FF7A00]" /> Rekomendasi: 512 x 512 px (PNG Transparan / JPG, Rasio 1:1)
+                </span>
               </div>
 
-              {/* 3 Promo Banners Settings */}
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-500" /> SPANDUK / BANNER PROMOSI (70% DISPLAY LAYAR)
-                  </h3>
-                  <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 flex items-center gap-1">
-                    <Info className="h-3 w-3" /> Rekomendasi Ukuran Gambar Promo: 1920 x 1080 px (Aspect Ratio 16:9 - Landscape Full HD)
-                  </span>
+              {/* Drag and Drop Component for Outlet Logo */}
+              <ImageDropzone
+                imageUrl={form.logo_url || null}
+                onImageSelected={handleLogoFile}
+                onUrlDropped={(url) => setForm((f) => ({ ...f, logo_url: url }))}
+                onImageRemoved={() => setForm((f) => ({ ...f, logo_url: "" }))}
+                label="Foto / Gambar Logo Toko Resmi"
+              />
+            </div>
+
+            {/* 3 PROMO BANNER DROPZONES */}
+            <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-200 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-100 text-[#003B8F] font-bold border border-blue-300">
+                    <Sparkles className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-extrabold text-[#003B8F]">2. Spanduk Promo Layar Pelanggan (70% Area)</h2>
+                    <p className="text-xs text-slate-500">
+                      Tarik & Lepas (Drag and Drop) gambar promo 16:9 yang akan otomatis diputar di layar depan pelanggan.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Promo Banner 1 */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-                    <div className="text-xs font-black text-slate-900">PROMO 1 (Banner Utama)</div>
-                    <div className="h-28 rounded-xl bg-slate-900 overflow-hidden relative border border-slate-300">
-                      <img src={form.promo_image_1} alt="Promo 1" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 flex items-end p-2">
-                        <span className="text-[10px] font-bold text-white truncate">{form.promo_title_1}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">Judul Promo 1</label>
-                      <input
-                        type="text"
-                        value={form.promo_title_1}
-                        onChange={(e) => setForm({ ...form, promo_title_1: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 p-2 text-xs text-slate-900 font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">URL Gambar (16:9)</label>
-                      <input
-                        type="url"
-                        value={form.promo_image_1}
-                        onChange={(e) => setForm({ ...form, promo_image_1: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 p-2 text-[11px] font-mono"
-                      />
-                    </div>
+                <span className="text-[11px] font-bold text-blue-900 bg-blue-100 px-3 py-1 rounded-full border border-blue-300 flex items-center gap-1">
+                  <Info className="h-3.5 w-3.5 text-blue-700" /> Rekomendasi: 1920 x 1080 px (16:9 Full HD Landscape)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Promo Banner 1 Dropzone */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="text-xs font-black text-[#003B8F] uppercase tracking-wider">PROMO 1 (Banner Utama)</div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Judul Promo 1</label>
+                    <input
+                      type="text"
+                      value={form.promo_title_1}
+                      onChange={(e) => setForm({ ...form, promo_title_1: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 p-2 text-xs text-slate-900 font-bold bg-white"
+                    />
                   </div>
 
-                  {/* Promo Banner 2 */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-                    <div className="text-xs font-black text-slate-900">PROMO 2 (Happy Hour)</div>
-                    <div className="h-28 rounded-xl bg-slate-900 overflow-hidden relative border border-slate-300">
-                      <img src={form.promo_image_2} alt="Promo 2" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 flex items-end p-2">
-                        <span className="text-[10px] font-bold text-white truncate">{form.promo_title_2}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">Judul Promo 2</label>
-                      <input
-                        type="text"
-                        value={form.promo_title_2}
-                        onChange={(e) => setForm({ ...form, promo_title_2: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 p-2 text-xs text-slate-900 font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">URL Gambar (16:9)</label>
-                      <input
-                        type="url"
-                        value={form.promo_image_2}
-                        onChange={(e) => setForm({ ...form, promo_image_2: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 p-2 text-[11px] font-mono"
-                      />
-                    </div>
+                  <ImageDropzone
+                    imageUrl={form.promo_image_1 || null}
+                    onImageSelected={handlePromo1File}
+                    onUrlDropped={(url) => setForm((f) => ({ ...f, promo_image_1: url }))}
+                    onImageRemoved={() => setForm((f) => ({ ...f, promo_image_1: "" }))}
+                    label="Foto Spanduk Promo 1"
+                  />
+                </div>
+
+                {/* Promo Banner 2 Dropzone */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="text-xs font-black text-[#003B8F] uppercase tracking-wider">PROMO 2 (Happy Hour)</div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Judul Promo 2</label>
+                    <input
+                      type="text"
+                      value={form.promo_title_2}
+                      onChange={(e) => setForm({ ...form, promo_title_2: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 p-2 text-xs text-slate-900 font-bold bg-white"
+                    />
                   </div>
 
-                  {/* Promo Banner 3 */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
-                    <div className="text-xs font-black text-slate-900">PROMO 3 (Produk Baru / Pastry)</div>
-                    <div className="h-28 rounded-xl bg-slate-900 overflow-hidden relative border border-slate-300">
-                      <img src={form.promo_image_3} alt="Promo 3" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 flex items-end p-2">
-                        <span className="text-[10px] font-bold text-white truncate">{form.promo_title_3}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">Judul Promo 3</label>
-                      <input
-                        type="text"
-                        value={form.promo_title_3}
-                        onChange={(e) => setForm({ ...form, promo_title_3: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 p-2 text-xs text-slate-900 font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">URL Gambar (16:9)</label>
-                      <input
-                        type="url"
-                        value={form.promo_image_3}
-                        onChange={(e) => setForm({ ...form, promo_image_3: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 p-2 text-[11px] font-mono"
-                      />
-                    </div>
+                  <ImageDropzone
+                    imageUrl={form.promo_image_2 || null}
+                    onImageSelected={handlePromo2File}
+                    onUrlDropped={(url) => setForm((f) => ({ ...f, promo_image_2: url }))}
+                    onImageRemoved={() => setForm((f) => ({ ...f, promo_image_2: "" }))}
+                    label="Foto Spanduk Promo 2"
+                  />
+                </div>
+
+                {/* Promo Banner 3 Dropzone */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                  <div className="text-xs font-black text-[#003B8F] uppercase tracking-wider">PROMO 3 (Produk Baru)</div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Judul Promo 3</label>
+                    <input
+                      type="text"
+                      value={form.promo_title_3}
+                      onChange={(e) => setForm({ ...form, promo_title_3: e.target.value })}
+                      className="w-full rounded-xl border border-slate-300 p-2 text-xs text-slate-900 font-bold bg-white"
+                    />
                   </div>
+
+                  <ImageDropzone
+                    imageUrl={form.promo_image_3 || null}
+                    onImageSelected={handlePromo3File}
+                    onUrlDropped={(url) => setForm((f) => ({ ...f, promo_image_3: url }))}
+                    onImageRemoved={() => setForm((f) => ({ ...f, promo_image_3: "" }))}
+                    label="Foto Spanduk Promo 3"
+                  />
                 </div>
               </div>
             </div>
 
             {/* Profil Usaha & Struk */}
-            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-border space-y-4">
-              <div className="flex items-center gap-3 border-b border-border pb-3">
+            <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-200 space-y-4">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
                 <div className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700 font-bold">
                   <Store className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-extrabold text-slate-900">Profil Usaha & Format Struk</h2>
-                  <p className="text-xs text-slate-500">Informasi toko yang akan tercetak pada struk thermal kasir.</p>
+                  <h2 className="text-lg font-extrabold text-[#003B8F]">3. Profil Usaha & Format Struk</h2>
+                  <p className="text-xs text-slate-500">Informasi toko yang tercetak pada struk kasir.</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <label className="block text-xs font-bold text-slate-600">
+                <label className="block text-xs font-bold text-slate-700">
                   Nama Toko / Outlet *
                   <input
                     required
@@ -306,7 +319,7 @@ function PengaturanPage() {
                   />
                 </label>
 
-                <label className="block text-xs font-bold text-slate-600">
+                <label className="block text-xs font-bold text-slate-700">
                   Nomor Telepon / WhatsApp Toko
                   <input
                     value={form.phone}
@@ -317,13 +330,22 @@ function PengaturanPage() {
                 </label>
               </div>
 
-              <label className="block text-xs font-bold text-slate-600">
+              <label className="block text-xs font-bold text-slate-700">
                 Alamat Lengkap Toko
                 <textarea
                   rows={2}
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
                   placeholder="Jl. Sudirman No. 12..."
+                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 mt-1"
+                />
+              </label>
+
+              <label className="block text-xs font-bold text-slate-700">
+                Pesan Kaki Struk (Footer)
+                <input
+                  value={form.receipt_footer}
+                  onChange={(e) => setForm({ ...form, receipt_footer: e.target.value })}
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 mt-1"
                 />
               </label>
