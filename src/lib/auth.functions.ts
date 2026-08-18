@@ -82,6 +82,8 @@ export const loginWithEmailPassword = createServerFn({ method: "POST" })
     };
   });
 
+export const loginSuperAdmin = loginWithEmailPassword;
+
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
   const { getGateSession } = await import("@/lib/session.server");
   const session = await getGateSession();
@@ -100,4 +102,21 @@ export const getCurrentStaff = createServerFn({ method: "GET" }).handler(async (
     outletId: session.data.outletId ?? null,
     outletName: session.data.outletName ?? null,
   };
+});
+
+/** Public: display config + whether this device is unlocked. */
+export const getDisplayContext = createServerFn({ method: "GET" }).handler(async () => {
+  const { getGateSession } = await import("@/lib/session.server");
+  const session = await getGateSession();
+  const unlocked = Boolean(session.data.displayUnlocked || session.data.staffId);
+  if (!unlocked) return { unlocked: false as const };
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("store_settings")
+    .select(
+      "store_name, logo_url, display_header, display_footer, sound_enabled, sound_volume, completed_display_duration, max_display_items, show_customer_name, show_clock",
+    )
+    .limit(1)
+    .maybeSingle();
+  return { unlocked: true as const, settings: data ?? null };
 });

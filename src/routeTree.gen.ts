@@ -10,11 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as DisplayCustomerRouteImport } from './routes/display-customer'
 import { Route as DisplayNomorRouteImport } from './routes/display-nomor'
 import { Route as DisplayPesananRouteImport } from './routes/display-pesanan'
 import { Route as KasirRouteImport } from './routes/kasir'
+import { Route as KategoriRouteImport } from './routes/kategori'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as OmzetRouteImport } from './routes/omzet'
+import { Route as PengaturanRouteImport } from './routes/pengaturan'
+import { Route as PenggunaRouteImport } from './routes/pengguna'
+import { Route as PesananAktifRouteImport } from './routes/pesanan-aktif'
 import { Route as ProdukRouteImport } from './routes/produk'
+import { Route as StokRouteImport } from './routes/stok'
 import { Route as TransaksiRouteImport } from './routes/transaksi'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
@@ -22,6 +30,16 @@ import { Route as AdminLoginRouteImport } from './routes/admin/login'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DisplayCustomerRoute = DisplayCustomerRouteImport.update({
+  id: '/display-customer',
+  path: '/display-customer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DisplayNomorRoute = DisplayNomorRouteImport.update({
@@ -39,14 +57,44 @@ const KasirRoute = KasirRouteImport.update({
   path: '/kasir',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KategoriRoute = KategoriRouteImport.update({
+  id: '/kategori',
+  path: '/kategori',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OmzetRoute = OmzetRouteImport.update({
+  id: '/omzet',
+  path: '/omzet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PengaturanRoute = PengaturanRouteImport.update({
+  id: '/pengaturan',
+  path: '/pengaturan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PenggunaRoute = PenggunaRouteImport.update({
+  id: '/pengguna',
+  path: '/pengguna',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PesananAktifRoute = PesananAktifRouteImport.update({
+  id: '/pesanan-aktif',
+  path: '/pesanan-aktif',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProdukRoute = ProdukRouteImport.update({
   id: '/produk',
   path: '/produk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StokRoute = StokRouteImport.update({
+  id: '/stok',
+  path: '/stok',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TransaksiRoute = TransaksiRouteImport.update({
@@ -55,34 +103,50 @@ const TransaksiRoute = TransaksiRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
-  id: '/admin/dashboard',
-  path: '/admin/dashboard',
-  getParentRoute: () => rootRouteImport,
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
-  id: '/admin/login',
-  path: '/admin/login',
-  getParentRoute: () => rootRouteImport,
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AdminRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/display-customer': typeof DisplayCustomerRoute
   '/display-nomor': typeof DisplayNomorRoute
   '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
+  '/kategori': typeof KategoriRoute
   '/login': typeof LoginRoute
+  '/omzet': typeof OmzetRoute
+  '/pengaturan': typeof PengaturanRoute
+  '/pengguna': typeof PenggunaRoute
+  '/pesanan-aktif': typeof PesananAktifRoute
   '/produk': typeof ProdukRoute
+  '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/display-customer': typeof DisplayCustomerRoute
   '/display-nomor': typeof DisplayNomorRoute
   '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
+  '/kategori': typeof KategoriRoute
   '/login': typeof LoginRoute
+  '/omzet': typeof OmzetRoute
+  '/pengaturan': typeof PengaturanRoute
+  '/pengguna': typeof PenggunaRoute
+  '/pesanan-aktif': typeof PesananAktifRoute
   '/produk': typeof ProdukRoute
+  '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
@@ -90,11 +154,19 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/display-customer': typeof DisplayCustomerRoute
   '/display-nomor': typeof DisplayNomorRoute
   '/display-pesanan': typeof DisplayPesananRoute
   '/kasir': typeof KasirRoute
+  '/kategori': typeof KategoriRoute
   '/login': typeof LoginRoute
+  '/omzet': typeof OmzetRoute
+  '/pengaturan': typeof PengaturanRoute
+  '/pengguna': typeof PenggunaRoute
+  '/pesanan-aktif': typeof PesananAktifRoute
   '/produk': typeof ProdukRoute
+  '/stok': typeof StokRoute
   '/transaksi': typeof TransaksiRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
@@ -103,33 +175,57 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
+    | '/display-customer'
     | '/display-nomor'
     | '/display-pesanan'
     | '/kasir'
+    | '/kategori'
     | '/login'
+    | '/omzet'
+    | '/pengaturan'
+    | '/pengguna'
+    | '/pesanan-aktif'
     | '/produk'
+    | '/stok'
     | '/transaksi'
     | '/admin/dashboard'
     | '/admin/login'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
+    | '/display-customer'
     | '/display-nomor'
     | '/display-pesanan'
     | '/kasir'
+    | '/kategori'
     | '/login'
+    | '/omzet'
+    | '/pengaturan'
+    | '/pengguna'
+    | '/pesanan-aktif'
     | '/produk'
+    | '/stok'
     | '/transaksi'
     | '/admin/dashboard'
     | '/admin/login'
   id:
     | '__root__'
     | '/'
+    | '/admin'
+    | '/display-customer'
     | '/display-nomor'
     | '/display-pesanan'
     | '/kasir'
+    | '/kategori'
     | '/login'
+    | '/omzet'
+    | '/pengaturan'
+    | '/pengguna'
+    | '/pesanan-aktif'
     | '/produk'
+    | '/stok'
     | '/transaksi'
     | '/admin/dashboard'
     | '/admin/login'
@@ -137,14 +233,20 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  DisplayCustomerRoute: typeof DisplayCustomerRoute
   DisplayNomorRoute: typeof DisplayNomorRoute
   DisplayPesananRoute: typeof DisplayPesananRoute
   KasirRoute: typeof KasirRoute
+  KategoriRoute: typeof KategoriRoute
   LoginRoute: typeof LoginRoute
+  OmzetRoute: typeof OmzetRoute
+  PengaturanRoute: typeof PengaturanRoute
+  PenggunaRoute: typeof PenggunaRoute
+  PesananAktifRoute: typeof PesananAktifRoute
   ProdukRoute: typeof ProdukRoute
+  StokRoute: typeof StokRoute
   TransaksiRoute: typeof TransaksiRoute
-  AdminDashboardRoute: typeof AdminDashboardRoute
-  AdminLoginRoute: typeof AdminLoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -154,6 +256,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/display-customer': {
+      id: '/display-customer'
+      path: '/display-customer'
+      fullPath: '/display-customer'
+      preLoaderRoute: typeof DisplayCustomerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/display-nomor': {
@@ -177,6 +293,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KasirRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/kategori': {
+      id: '/kategori'
+      path: '/kategori'
+      fullPath: '/kategori'
+      preLoaderRoute: typeof KategoriRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -184,11 +307,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/omzet': {
+      id: '/omzet'
+      path: '/omzet'
+      fullPath: '/omzet'
+      preLoaderRoute: typeof OmzetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pengaturan': {
+      id: '/pengaturan'
+      path: '/pengaturan'
+      fullPath: '/pengaturan'
+      preLoaderRoute: typeof PengaturanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pengguna': {
+      id: '/pengguna'
+      path: '/pengguna'
+      fullPath: '/pengguna'
+      preLoaderRoute: typeof PenggunaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pesanan-aktif': {
+      id: '/pesanan-aktif'
+      path: '/pesanan-aktif'
+      fullPath: '/pesanan-aktif'
+      preLoaderRoute: typeof PesananAktifRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/produk': {
       id: '/produk'
       path: '/produk'
       fullPath: '/produk'
       preLoaderRoute: typeof ProdukRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stok': {
+      id: '/stok'
+      path: '/stok'
+      fullPath: '/stok'
+      preLoaderRoute: typeof StokRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/transaksi': {
@@ -200,31 +358,49 @@ declare module '@tanstack/react-router' {
     }
     '/admin/dashboard': {
       id: '/admin/dashboard'
-      path: '/admin/dashboard'
+      path: '/dashboard'
       fullPath: '/admin/dashboard'
       preLoaderRoute: typeof AdminDashboardRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/admin/login': {
       id: '/admin/login'
-      path: '/admin/login'
+      path: '/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminRoute
     }
   }
 }
 
+interface AdminRouteChildren {
+  AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDashboardRoute: AdminDashboardRoute,
+  AdminLoginRoute: AdminLoginRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  DisplayCustomerRoute: DisplayCustomerRoute,
   DisplayNomorRoute: DisplayNomorRoute,
   DisplayPesananRoute: DisplayPesananRoute,
   KasirRoute: KasirRoute,
+  KategoriRoute: KategoriRoute,
   LoginRoute: LoginRoute,
+  OmzetRoute: OmzetRoute,
+  PengaturanRoute: PengaturanRoute,
+  PenggunaRoute: PenggunaRoute,
+  PesananAktifRoute: PesananAktifRoute,
   ProdukRoute: ProdukRoute,
+  StokRoute: StokRoute,
   TransaksiRoute: TransaksiRoute,
-  AdminDashboardRoute: AdminDashboardRoute,
-  AdminLoginRoute: AdminLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
