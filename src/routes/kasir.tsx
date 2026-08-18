@@ -23,7 +23,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
-import { PaymentModal, type PaymentMethod } from "@/components/PaymentModal";
+import { PaymentModal, type PaymentPayload } from "@/components/PaymentModal";
 import { ReceiptModal, type ReceiptData } from "@/components/ReceiptModal";
 import { SweetAlertModal, type SweetAlertProps } from "@/components/SweetAlertModal";
 import { getCurrentStaff } from "@/lib/auth.functions";
@@ -159,14 +159,17 @@ function KasirPage() {
   const subtotal = cart.reduce((s, l) => s + l.price * l.qty, 0);
   const total = subtotal;
 
-  const handlePay = async ({ paid, method }: { paid: number; method: PaymentMethod }) => {
+  const handlePay = async (payload: PaymentPayload) => {
     try {
       const res = await doCheckout({
         data: {
           items: cart.map((l) => ({ product_id: l.product_id, quantity: l.qty })),
-          discount: 0,
-          amount_paid: paid,
-          payment_method: method,
+          discount: payload.discount || 0,
+          amount_paid: payload.amount_paid,
+          payment_method: payload.payment_method,
+          customer_name: payload.customer_name,
+          order_type: payload.order_type,
+          notes: payload.notes,
         },
       });
 
