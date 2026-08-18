@@ -188,7 +188,7 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
 export const listTransactions = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ from: z.string().optional(), to: z.string().optional() }).parse(d ?? {}))
   .handler(async ({ data }) => {
-    const staff = await requireAdmin();
+    const staff = await requireStaff();
     const db = await admin();
     let q = db
       .from("transactions")

@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Eye, Printer, Search, Receipt, ArrowRight } from "lucide-react";
+import { Calendar, Eye, Printer, Search, Receipt, ArrowRight, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { ReceiptModal, type ReceiptData } from "@/components/ReceiptModal";
@@ -23,9 +23,10 @@ export const Route = createFileRoute("/transaksi")({
 function TransaksiPage() {
   const staff = Route.useLoaderData();
   const fetchTxns = useServerFn(listTransactions);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin-transactions"],
     queryFn: () => fetchTxns({}),
+    refetchInterval: 3000,
   });
 
   const [q, setQ] = useState("");
@@ -72,11 +73,18 @@ function TransaksiPage() {
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-900">Riwayat Transaksi Penjualan</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-3xl font-extrabold text-[#111827]">Riwayat Transaksi Penjualan</h1>
+            <p className="text-xs text-slate-500 font-medium">
               Sentuh atau klik pada baris transaksi mana saja untuk melihat rincian dan mencetak struk thermal.
             </p>
           </div>
+
+          <button
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-2 rounded-2xl bg-white hover:border-[#2952E3] px-4 py-2.5 text-xs font-bold text-[#111827] border border-[#E5E7EB] shadow-xs transition active:scale-95"
+          >
+            <RefreshCw className="h-4 w-4 text-[#2952E3]" /> Refresh Data
+          </button>
         </div>
 
         {/* Search Toolbar */}
