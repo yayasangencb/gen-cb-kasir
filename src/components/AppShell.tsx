@@ -16,9 +16,10 @@ import {
   ExternalLink,
   Boxes,
 } from "lucide-react";
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { logout } from "@/lib/auth.functions";
+import { SweetAlertModal } from "@/components/SweetAlertModal";
 
 type NavItem = {
   to: string;
@@ -53,10 +54,11 @@ export function AppShell({
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const doLogout = useServerFn(logout);
+  const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
-  const onLogout = async () => {
+  const confirmLogout = async () => {
     await doLogout({});
-    toast.success("Keluar berhasil");
+    toast.success("Keluar akun berhasil");
     await router.navigate({ to: "/login" });
   };
 
@@ -64,16 +66,16 @@ export function AppShell({
   const outletTitle = staff?.outletName ?? "Kasir Outlet";
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
-      <aside className="hidden w-64 flex-col border-r border-border/60 bg-white/90 backdrop-blur md:flex">
-        {/* Outlet Header - No Gen CB branding here */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-border/40">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-500 text-slate-950 font-black text-xl shadow-md border border-amber-400 shrink-0">
+    <div className="flex min-h-screen bg-[#FAFAFB] font-sans">
+      <aside className="hidden w-64 flex-col border-r border-[#E5E7EB] bg-white md:flex shadow-xs">
+        {/* Outlet Header */}
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-[#E5E7EB]">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#2952E3] text-white font-black text-xl shadow-md border border-[#2952E3]/20 shrink-0">
             {outletTitle.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">OUTLET KASIR</div>
-            <div className="text-sm font-extrabold text-slate-900 truncate" title={outletTitle}>
+            <div className="text-[10px] uppercase tracking-widest text-[#9CA3AF] font-bold">OUTLET KASIR</div>
+            <div className="text-sm font-extrabold text-[#111827] truncate" title={outletTitle}>
               {outletTitle}
             </div>
           </div>
@@ -94,10 +96,10 @@ export function AppShell({
                   href={item.to}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                  className="flex items-center justify-between rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-[#FAFAFB] hover:text-[#2952E3] transition active:scale-95"
                 >
                   <span className="flex items-center gap-3">
-                    <Icon className="h-4 w-4 text-blue-600" />
+                    <Icon className="h-4 w-4 text-[#2952E3]" />
                     {item.label}
                   </span>
                   <ExternalLink className="h-3 w-3 opacity-50" />
@@ -109,10 +111,10 @@ export function AppShell({
               <Link
                 key={item.label + item.to}
                 to={item.to as any}
-                className={`flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-extrabold transition ${
+                className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 text-xs font-extrabold transition active:scale-95 ${
                   active
-                    ? "text-white shadow-md bg-gradient-to-r from-blue-700 to-blue-600"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "text-white shadow-md bg-gradient-to-r from-[#2952E3] to-[#1E40AF]"
+                    : "text-slate-600 hover:bg-[#FAFAFB] hover:text-[#111827]"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -124,27 +126,27 @@ export function AppShell({
           {staff?.role === "super_admin" && (
             <Link
               to="/admin/dashboard"
-              className="mt-4 flex items-center gap-3 rounded-xl bg-amber-500/10 border border-amber-500/30 px-4 py-2.5 text-xs font-extrabold text-amber-900 hover:bg-amber-500/20 transition"
+              className="mt-4 flex items-center gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs font-extrabold text-amber-900 hover:bg-amber-100 transition active:scale-95"
             >
-              <Store className="h-4 w-4 text-amber-700" />
+              <Store className="h-4 w-4 text-[#F97316]" />
               Panel Super Admin
             </Link>
           )}
         </nav>
 
         {/* Active Staff Footer */}
-        <div className="p-3 border-t border-slate-200">
-          <div className="rounded-2xl bg-slate-100 p-3 border border-slate-200">
-            <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Petugas Aktif</div>
-            <div className="truncate font-extrabold text-slate-900 text-xs">{staff?.name}</div>
+        <div className="p-3 border-t border-[#E5E7EB]">
+          <div className="rounded-2xl bg-[#FAFAFB] p-3 border border-[#E5E7EB]">
+            <div className="text-[10px] uppercase tracking-wider text-[#9CA3AF] font-semibold">Petugas Aktif</div>
+            <div className="truncate font-extrabold text-[#111827] text-xs">{staff?.name}</div>
             <div className="mt-1 flex items-center justify-between">
-              <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-black text-blue-800 uppercase tracking-wide">
+              <span className="inline-flex rounded-full bg-[#2952E3]/10 px-2.5 py-0.5 text-[9px] font-black text-[#2952E3] uppercase tracking-wide">
                 {staff?.role === "admin" ? "Admin Kasir" : staff?.role === "kasir" ? "Kasir POS" : staff?.role}
               </span>
             </div>
             <button
-              onClick={onLogout}
-              className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-1.5 text-xs font-bold text-rose-600 ring-1 ring-slate-200 transition hover:bg-rose-50"
+              onClick={() => setShowLogoutAlert(true)}
+              className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2 text-xs font-bold text-rose-600 border border-[#E5E7EB] shadow-xs transition hover:bg-rose-50 active:scale-95"
             >
               <LogOut className="h-3.5 w-3.5" /> Keluar Akun
             </button>
@@ -153,6 +155,23 @@ export function AppShell({
       </aside>
 
       <main className={`flex-1 ${fullBleed ? "" : "p-6"}`}>{children}</main>
+
+      {/* Logout Confirmation SweetAlert */}
+      {showLogoutAlert && (
+        <SweetAlertModal
+          type="warning"
+          title="Keluar dari Akun Kasir?"
+          message="Sesi login Anda akan diakhiri. Anda perlu memasukkan PIN/Email kembali untuk masuk."
+          showCancel
+          cancelText="Batal"
+          confirmText="Ya, Keluar"
+          onConfirm={() => {
+            setShowLogoutAlert(false);
+            confirmLogout();
+          }}
+          onCancel={() => setShowLogoutAlert(false)}
+        />
+      )}
     </div>
   );
 }
