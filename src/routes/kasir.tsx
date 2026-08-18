@@ -19,6 +19,7 @@ import {
   Store,
   CreditCard,
   Flame,
+  Pencil,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ import { AppShell } from "@/components/AppShell";
 import { PaymentModal, type PaymentPayload } from "@/components/PaymentModal";
 import { ReceiptModal, type ReceiptData } from "@/components/ReceiptModal";
 import { SweetAlertModal, type SweetAlertProps } from "@/components/SweetAlertModal";
-import { getCurrentStaff } from "@/lib/auth.functions";
+import { getCurrentStaff, updateActiveCashierName } from "@/lib/auth.functions";
 import { rupiah } from "@/lib/format";
 import { checkout, listCatalog, listActiveOrders, updateQueueStatus } from "@/lib/pos.functions";
 
@@ -49,6 +50,24 @@ function KasirPage() {
   const fetchActiveOrders = useServerFn(listActiveOrders);
   const doCheckout = useServerFn(checkout);
   const doUpdateQueue = useServerFn(updateQueueStatus);
+  const doUpdateCashierName = useServerFn(updateActiveCashierName);
+
+  const [dutyCashierName, setDutyCashierName] = useState(staff.name);
+  const [editingCashier, setEditingCashier] = useState(false);
+  const [inputCashierName, setInputCashierName] = useState(staff.name);
+
+  const handleSaveCashierName = async () => {
+    const trimmed = inputCashierName.trim();
+    if (!trimmed) return;
+    try {
+      const res = await doUpdateCashierName({ data: { name: trimmed } });
+      setDutyCashierName(res.name);
+      setEditingCashier(false);
+      toast.success(`Nama kasir bertugas diubah ke "${res.name}"`);
+    } catch (err) {
+      toast.error("Gagal mengubah nama kasir bertugas");
+    }
+  };
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["catalog"],
@@ -178,7 +197,7 @@ function KasirPage() {
         invoice_no: res.transaction_number,
         queue_number: res.queue_number,
         queue_no: res.queue_number,
-        cashier_name: res.cashier_name || staff.name,
+        cashier_name: res.cashier_name || dutyCashierName || staff.name,
         created_at: res.created_at,
         subtotal: Number(res.subtotal),
         discount: Number(res.discount),
@@ -266,8 +285,45 @@ function KasirPage() {
                     ONLINE
                   </span>
                 </div>
-                <div className="text-xs text-[#9CA3AF] font-semibold flex items-center gap-2">
-                  Kasir: <b className="text-[#111827]">{staff.name}</b> • <Clock className="h-3.5 w-3.5 inline text-[#2952E3]" /> {timeStr || "16:00 WIB"}
+                <div className="text-xs text-[#9CA3AF] font-semibold flex items-center gap-2 flex-wrap">
+                  <span>Kasir:</span>
+                  {editingCashier ? (
+                    <div className="inline-flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={inputCashierName}
+                        onChange={(e) => setInputCashierName(e.target.value)}
+                        placeholder="Nama Kasir (misal: Dinda)"
+                        className="rounded-xl border border-[#2952E3] bg-white px-2.5 py-1 text-xs font-bold text-[#111827] outline-none shadow-xs"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSaveCashierName}
+                        className="rounded-xl bg-[#2952E3] text-white px-2.5 py-1 text-xs font-extrabold hover:bg-[#1E40AF] transition"
+                      >
+                        Simpan
+                      </button>
+                      <button
+                        onClick={() => setEditingCashier(false)}
+                        className="rounded-xl bg-slate-100 text-slate-600 px-2 py-1 text-xs font-bold hover:bg-slate-200 transition"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setInputCashierName(dutyCashierName);
+                        setEditingCashier(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-blue-50 text-[#111827] hover:text-[#2952E3] px-2.5 py-1 rounded-xl font-bold transition border border-slate-200"
+                      title="Klik untuk ubah nama kasir bertugas (misal: Dinda)"
+                    >
+                      <b className="font-extrabold">{dutyCashierName}</b>
+                      <Pencil className="h-3 w-3 text-[#2952E3]" />
+                    </button>
+                  )}
+                  • <Clock className="h-3.5 w-3.5 inline text-[#2952E3]" /> {timeStr || "16:00 WIB"}
                 </div>
               </div>
             </div>

@@ -120,3 +120,25 @@ export const getDisplayContext = createServerFn({ method: "GET" }).handler(async
     .maybeSingle();
   return { unlocked: true as const, settings: data ?? null };
 });
+
+export const updateActiveCashierName = createServerFn({ method: "POST" })
+  .inputValidator((data) => z.object({ name: z.string().min(1).max(80) }).parse(data))
+  .handler(async ({ data }) => {
+    const { getGateSession } = await import("@/lib/session.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const session = await getGateSession();
+    if (!session.data.staffId) throw new Error("Belum login");
+
+    const newName = data.name.trim();
+
+    // 1. Update active session
+    await session.update({
+      name: newName,
+    });
+
+    // 2. Update staff database record so create_pos_transaction RPC uses updated cashier name
+    await supabaseAdmin.from("staff").update({ name: newName }).eq("id", session.data.staffId);
+
+    return { ok: true as const, name: newName };
+  });
+
