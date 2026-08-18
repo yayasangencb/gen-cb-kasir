@@ -34,6 +34,34 @@ export const listOutlets = createServerFn({ method: "GET" }).handler(async () =>
   return outlets ?? [];
 });
 
+export const listAllUsers = createServerFn({ method: "GET" }).handler(async () => {
+  const { getGateSession } = await import("@/lib/session.server");
+  const session = await getGateSession();
+  if (session.data.role !== "super_admin") {
+    throw new Error("Akses ditolak: Hanya Super Admin");
+  }
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const { data: users, error } = await supabaseAdmin
+    .from("staff")
+    .select(`
+      id,
+      name,
+      pin,
+      role,
+      email,
+      is_active,
+      created_at,
+      outlet_id,
+      outlets(id, name, code)
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return users ?? [];
+});
+
 export const createOutlet = createServerFn({ method: "POST" })
   .inputValidator((data) =>
     z
@@ -157,6 +185,51 @@ export const createOutlet = createServerFn({ method: "POST" })
     }
 
     return { ok: true as const, outlet };
+  });
+
+export const createStaffUser = createServerFn({ method: "POST" })
+  .inputValidator((data) =>
+    z
+      .object({
+        name: z.string().min(2, "Nama user minimal 2 karakter"),
+        role: z.enum(["admin", "kasir"]),
+        pin: z.string().min(3, "PIN minimal 3 digit"),
+        outletId: z.string().uuid("Pilih outlet yang valid"),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { getGateSession } = await import("@/lib/session.server");
+    const session = await getGateSession();
+    if (session.data.role !== "super_admin") {
+      throw new Error("Akses ditolak: Hanya Super Admin");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Check PIN uniqueness
+    const { data: check } = await supabaseAdmin
+      .from("staff")
+      .select("id")
+      .eq("pin", data.pin)
+      .maybeSingle();
+
+    if (check) throw new Error("PIN ini sudah digunakan oleh user/outlet lain.");
+
+    const { data: user, error } = await supabaseAdmin
+      .from("staff")
+      .insert({
+        name: data.name.trim(),
+        role: data.role,
+        pin: data.pin.trim(),
+        outlet_id: data.outletId,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return { ok: true as const, user };
   });
 
 export const updateStaffPin = createServerFn({ method: "POST" })
