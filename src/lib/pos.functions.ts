@@ -703,15 +703,28 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
       q = q.eq("outlet_id", staff.outletId);
     }
     const { data: existing } = await q.limit(1).maybeSingle();
-    if (!existing) {
-      // insert new settings for this outlet
-      const { error } = await db.from("store_settings").insert({ ...data, outlet_id: staff.outletId });
+    try {
+      if (!existing) {
+        const { error } = await db.from("store_settings").insert({ ...data, outlet_id: staff.outletId });
+        if (error) throw new Error(error.message);
+        return { ok: true };
+      }
+      const { error } = await db.from("store_settings").update(data).eq("id", existing.id);
       if (error) throw new Error(error.message);
       return { ok: true };
+    } catch (err: any) {
+      // Fallback if promo_image columns are missing in PostgREST schema cache
+      if (err.message && err.message.includes("column of 'store_settings' in the schema cache")) {
+        const { logo_url, promo_image_1, promo_image_2, promo_image_3, promo_title_1, promo_title_2, promo_title_3, ...safeData } = data;
+        if (!existing) {
+          await db.from("store_settings").insert({ ...safeData, outlet_id: staff.outletId });
+        } else {
+          await db.from("store_settings").update(safeData).eq("id", existing.id);
+        }
+        return { ok: true, notice: "Silakan jalankan SQL migration terbaru di Supabase SQL Editor untuk mengaktifkan fitur simpan gambar promo." };
+      }
+      throw err;
     }
-    const { error } = await db.from("store_settings").update(data).eq("id", existing.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
   });
 
 export const updateQueueStatus = createServerFn({ method: "POST" })
