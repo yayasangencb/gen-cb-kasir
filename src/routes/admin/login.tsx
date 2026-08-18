@@ -38,32 +38,32 @@ function SuperAdminLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 bg-slate-900 text-slate-100 font-sans">
-      <div className="w-full max-w-md bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center p-6 bg-slate-100 font-sans">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-2xl">
         <a
           href="/login"
-          className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white mb-6 transition"
+          className="inline-flex items-center gap-2 text-xs font-bold text-[#003B8F] hover:underline mb-6 transition"
         >
-          <ArrowLeft className="h-4 w-4" /> Kembali ke Login PIN Kasir
+          <ArrowLeft className="h-4 w-4" /> Kembali ke Login PIN Staff Outlet
         </a>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white p-2 shadow-lg">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-50 p-2 border border-slate-200 shadow">
             <img src={logoAsset.url} alt="Logo GEN-CB" className="h-full w-full object-contain" />
           </div>
           <div>
-            <div className="text-xs uppercase tracking-widest text-amber-400 font-bold">PUSAT KONTROL</div>
-            <h1 className="text-xl font-black text-white">Login Super Admin</h1>
+            <div className="text-xs uppercase tracking-widest text-[#FF7A00] font-black">GEN CB KASIR</div>
+            <h1 className="text-xl font-extrabold text-[#003B8F]">Login Super Admin</h1>
           </div>
         </div>
 
-        <p className="text-xs text-slate-400 mb-6">
-          Login khusus Super Admin untuk membuat outlet baru, menghubungkan Admin Kasir & Kasir, dan mengelola PIN.
+        <p className="text-xs text-slate-500 mb-6">
+          Login khusus Pembuat / Super Admin untuk membuat outlet baru, menghubungkan Admin Kasir & Kasir, dan mengelola PIN.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Super Admin</label>
+            <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Email Super Admin</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <input
@@ -72,13 +72,13 @@ function SuperAdminLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="yayasangencb@gmail.com"
                 required
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#003B8F]"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Password</label>
+            <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <input
@@ -87,26 +87,27 @@ function SuperAdminLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#003B8F]"
               />
             </div>
           </div>
 
-          <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-300 flex items-start gap-2">
-            <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 flex items-start gap-2">
+            <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5 text-[#FF7A00]" />
             <div>
               <b>Kredensial Super Admin:</b>
               <br />
-              Email: <code className="bg-slate-900 px-1 py-0.5 rounded text-amber-200">yayasangencb@gmail.com</code>
+              Email: <code className="bg-white px-1 py-0.5 rounded text-slate-900 font-bold">yayasangencb@gmail.com</code>
               <br />
-              Password: <code className="bg-slate-900 px-1 py-0.5 rounded text-amber-200">Generasicerdasberaksi_</code>
+              Password: <code className="bg-white px-1 py-0.5 rounded text-slate-900 font-bold">Generasicerdasberaksi_</code>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={busy}
-            className="w-full mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3.5 rounded-xl transition shadow-lg disabled:opacity-50"
+            className="w-full mt-2 text-white font-extrabold py-3.5 rounded-xl transition shadow-lg disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #003B8F, #1E6FD9)" }}
           >
             {busy ? "Memeriksa Kredensial..." : "Masuk ke Panel Super Admin"}
           </button>

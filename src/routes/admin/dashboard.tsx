@@ -155,7 +155,7 @@ function SuperAdminDashboardPage() {
   };
 
   const filteredUsers = (users ?? []).filter((u) => {
-    if (u.role === "super_admin") return false; // hide super admin from pin table
+    if (u.role === "super_admin") return false;
     const outletName = Array.isArray(u.outlets) ? u.outlets[0]?.name : u.outlets?.name;
     const q = searchQuery.toLowerCase();
     return (
@@ -167,44 +167,48 @@ function SuperAdminDashboardPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans p-6">
+    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans p-6">
       {/* Header */}
-      <header className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      <header className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-300">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-amber-500 text-slate-950 font-black grid place-items-center text-xl shadow-lg">
+          <div
+            className="h-12 w-12 rounded-2xl text-white font-black grid place-items-center text-xl shadow-lg"
+            style={{ background: "linear-gradient(135deg, #003B8F, #1E6FD9)" }}
+          >
             SA
           </div>
           <div>
-            <div className="text-xs font-bold uppercase tracking-widest text-amber-400">PANEL SUPER ADMIN</div>
-            <h1 className="text-2xl font-extrabold text-white">Kelola User & Outlet Terhubung</h1>
+            <div className="text-xs font-black uppercase tracking-widest text-[#FF7A00]">GEN CB KASIR</div>
+            <h1 className="text-2xl font-extrabold text-[#003B8F]">Super Admin Control Center</h1>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={handleRefreshAll}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition border border-slate-700"
+            className="flex items-center gap-2 bg-white hover:bg-slate-50 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 transition border border-slate-300 shadow-sm"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
 
           <button
             onClick={() => setShowAddUserModal(true)}
-            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2.5 rounded-xl text-sm font-extrabold transition shadow-lg"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold transition shadow-md"
           >
-            <UserPlus className="h-5 w-5" /> Tambah User Baru
+            <UserPlus className="h-4 w-4" /> Tambah User Baru
           </button>
 
           <button
             onClick={() => setShowAddOutletModal(true)}
-            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2.5 rounded-xl text-sm font-extrabold transition shadow-lg"
+            className="flex items-center gap-2 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold transition shadow-md"
+            style={{ background: "linear-gradient(135deg, #FF7A00, #FFB000)" }}
           >
-            <Plus className="h-5 w-5" /> Tambah Outlet Baru
+            <Plus className="h-4 w-4" /> Tambah Outlet Baru
           </button>
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 px-4 py-2.5 rounded-xl text-sm font-semibold transition border border-rose-500/30"
+            className="flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 px-4 py-2.5 rounded-xl text-xs font-bold transition border border-rose-200"
           >
             <LogOut className="h-4 w-4" /> Keluar
           </button>
@@ -214,24 +218,24 @@ function SuperAdminDashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto mt-8">
         {/* Navigation Tabs */}
-        <div className="flex items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-2 bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700/80">
+        <div className="flex items-center justify-between gap-4 mb-6 border-b border-slate-200 pb-4">
+          <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-300 shadow-sm">
             <button
               onClick={() => setActiveTab("users")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition ${
                 activeTab === "users"
-                  ? "bg-amber-500 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                  ? "bg-[#003B8F] text-white shadow-md"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
               <Users className="h-4 w-4" /> Kelola Seluruh User & PIN ({(users ?? []).filter((u) => u.role !== "super_admin").length})
             </button>
             <button
               onClick={() => setActiveTab("outlets")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition ${
                 activeTab === "outlets"
-                  ? "bg-amber-500 text-slate-950 shadow-md"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                  ? "bg-[#003B8F] text-white shadow-md"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
               <Store className="h-4 w-4" /> Daftar Outlet Terdaftar ({(outlets ?? []).length})
@@ -246,7 +250,7 @@ function SuperAdminDashboardPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari nama, PIN, atau outlet..."
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                className="w-full bg-white border border-slate-300 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#003B8F]"
               />
             </div>
           )}
@@ -254,27 +258,27 @@ function SuperAdminDashboardPage() {
 
         {/* TAB 1: USERS & PIN TABLE */}
         {activeTab === "users" && (
-          <div className="bg-slate-800 border border-slate-700 rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-slate-700/80 flex items-center justify-between">
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xl">
+            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-black text-white">Daftar Seluruh User & PIN Login</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="text-lg font-extrabold text-[#003B8F]">Daftar Seluruh User & PIN Login</h2>
+                <p className="text-xs text-slate-500">
                   Super Admin menentukan PIN unik untuk menghubungkan antara Admin Kasir (Stok) dan Kasir (POS) di setiap outlet.
                 </p>
               </div>
             </div>
 
             {loadingUsers ? (
-              <div className="p-8 text-center text-slate-400">Memuat data user...</div>
+              <div className="p-8 text-center text-slate-500">Memuat data user...</div>
             ) : filteredUsers.length === 0 ? (
               <div className="p-12 text-center text-slate-400">
-                <Users className="mx-auto h-12 w-12 text-slate-600 mb-3" />
+                <Users className="mx-auto h-12 w-12 text-slate-400 mb-3" />
                 <p>Tidak ada user ditemukan.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-200">
-                  <thead className="bg-slate-900/80 text-slate-400 uppercase text-[11px] tracking-wider font-extrabold border-b border-slate-700">
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="bg-[#003B8F] text-white uppercase text-[11px] tracking-wider font-extrabold">
                     <tr>
                       <th className="px-6 py-4">Nama User</th>
                       <th className="px-6 py-4">Peran (Role)</th>
@@ -283,19 +287,19 @@ function SuperAdminDashboardPage() {
                       <th className="px-6 py-4 text-right">Aksi Super Admin</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-700/60 font-medium">
+                  <tbody className="divide-y divide-slate-200 font-medium">
                     {filteredUsers.map((u) => {
                       const outletData = Array.isArray(u.outlets) ? u.outlets[0] : u.outlets;
                       const isAdminRole = u.role === "admin";
 
                       return (
-                        <tr key={u.id} className="hover:bg-slate-700/40 transition">
-                          <td className="px-6 py-4 font-bold text-white flex items-center gap-3">
+                        <tr key={u.id} className="hover:bg-blue-50/50 transition">
+                          <td className="px-6 py-4 font-bold text-slate-900 flex items-center gap-3">
                             <div
                               className={`h-9 w-9 rounded-xl grid place-items-center font-black text-sm ${
                                 isAdminRole
-                                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                                  : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  ? "bg-amber-100 text-amber-900 border border-amber-300"
+                                  : "bg-blue-100 text-blue-900 border border-blue-300"
                               }`}
                             >
                               {u.name.charAt(0).toUpperCase()}
@@ -305,29 +309,29 @@ function SuperAdminDashboardPage() {
 
                           <td className="px-6 py-4">
                             {isAdminRole ? (
-                              <span className="inline-flex items-center gap-1.5 bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs font-extrabold px-3 py-1 rounded-full">
+                              <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black px-3 py-1 rounded-full">
                                 <ShieldCheck className="h-3.5 w-3.5" /> Admin Kasir (Kelola Stok)
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 text-xs font-extrabold px-3 py-1 rounded-full">
+                              <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-900 border border-blue-300 text-xs font-black px-3 py-1 rounded-full">
                                 <Users className="h-3.5 w-3.5" /> Kasir (POS & Display)
                               </span>
                             )}
                           </td>
 
-                          <td className="px-6 py-4 text-slate-300 font-semibold">
+                          <td className="px-6 py-4 text-slate-800 font-bold">
                             {outletData?.name ? (
                               <span className="flex items-center gap-1.5">
-                                <Store className="h-4 w-4 text-amber-400 shrink-0" />
+                                <Store className="h-4 w-4 text-[#FF7A00] shrink-0" />
                                 {outletData.name} ({outletData.code})
                               </span>
                             ) : (
-                              <span className="text-slate-500 italic">Belum terhubung outlet</span>
+                              <span className="text-slate-400 italic">Belum terhubung outlet</span>
                             )}
                           </td>
 
                           <td className="px-6 py-4">
-                            <span className="font-mono bg-slate-900 text-amber-300 font-extrabold px-3 py-1.5 rounded-xl border border-amber-500/40 text-base">
+                            <span className="font-mono bg-slate-900 text-amber-300 font-extrabold px-3 py-1.5 rounded-xl border border-amber-500/40 text-base shadow">
                               {u.pin ?? "—"}
                             </span>
                           </td>
@@ -335,7 +339,7 @@ function SuperAdminDashboardPage() {
                           <td className="px-6 py-4 text-right">
                             <button
                               onClick={() => setEditStaff({ id: u.id, name: u.name, currentPin: u.pin ?? "" })}
-                              className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-700 text-amber-400 hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-slate-700"
+                              className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-amber-500 hover:text-slate-950 text-slate-800 px-3.5 py-1.5 rounded-xl text-xs font-bold transition border border-slate-300 shadow-sm"
                             >
                               <Key className="h-3.5 w-3.5" /> Edit PIN
                             </button>
@@ -355,14 +359,15 @@ function SuperAdminDashboardPage() {
           <div>
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-200">Daftar Toko / Outlet Terhubung</h2>
-                <p className="text-xs text-slate-400">
+                <h2 className="text-lg font-bold text-slate-800">Daftar Toko / Outlet Terhubung</h2>
+                <p className="text-xs text-slate-500">
                   Setiap outlet terisolasi penuh. Admin Kasir mengelola stok outlet, Kasir melayani POS & Display.
                 </p>
               </div>
               <button
                 onClick={() => setShowAddOutletModal(true)}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-4 py-2 rounded-xl text-xs shadow-lg"
+                className="text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow-md"
+                style={{ background: "linear-gradient(135deg, #FF7A00, #FFB000)" }}
               >
                 + Tambah Outlet
               </button>
@@ -371,13 +376,13 @@ function SuperAdminDashboardPage() {
             {loadingOutlets ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-64 bg-slate-800/50 animate-pulse rounded-3xl border border-slate-800" />
+                  <div key={i} className="h-64 bg-white animate-pulse rounded-3xl border border-slate-200" />
                 ))}
               </div>
             ) : (outlets ?? []).length === 0 ? (
-              <div className="text-center py-16 bg-slate-800/40 rounded-3xl border border-slate-800">
-                <Store className="mx-auto h-12 w-12 text-slate-600 mb-3" />
-                <p className="text-slate-400">Belum ada outlet terdaftar.</p>
+              <div className="text-center py-16 bg-white rounded-3xl border border-slate-200">
+                <Store className="mx-auto h-12 w-12 text-slate-400 mb-3" />
+                <p className="text-slate-500">Belum ada outlet terdaftar.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -388,20 +393,20 @@ function SuperAdminDashboardPage() {
                   return (
                     <div
                       key={out.id}
-                      className="bg-slate-800 border border-slate-700 rounded-3xl p-6 flex flex-col justify-between hover:border-amber-500/50 transition shadow-xl relative overflow-hidden group"
+                      className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col justify-between hover:border-[#003B8F] transition shadow-md relative overflow-hidden group"
                     >
-                      <div className="absolute top-0 right-0 bg-amber-500/10 text-amber-400 font-extrabold text-[10px] uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl border-l border-b border-amber-500/20">
+                      <div className="absolute top-0 right-0 bg-blue-50 text-[#003B8F] font-extrabold text-[10px] uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl border-l border-b border-blue-200">
                         KODE: {out.code}
                       </div>
 
                       <div>
                         <div className="flex items-center gap-3 mb-4">
-                          <div className="h-12 w-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 text-amber-400 grid place-items-center font-black text-xl">
+                          <div className="h-12 w-12 rounded-2xl bg-amber-500 text-slate-950 grid place-items-center font-black text-xl shadow border border-amber-400">
                             {out.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <h3 className="text-lg font-black text-white">{out.name}</h3>
-                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <h3 className="text-lg font-black text-slate-900">{out.name}</h3>
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
                               {out.phone && (
                                 <span className="flex items-center gap-1">
                                   <Phone className="h-3 w-3" /> {out.phone}
@@ -412,24 +417,24 @@ function SuperAdminDashboardPage() {
                         </div>
 
                         {out.address && (
-                          <p className="text-xs text-slate-400 mb-4 flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5 text-amber-400 shrink-0" /> {out.address}
+                          <p className="text-xs text-slate-600 mb-4 flex items-center gap-1.5">
+                            <MapPin className="h-3.5 w-3.5 text-[#FF7A00] shrink-0" /> {out.address}
                           </p>
                         )}
 
-                        <div className="space-y-3 border-t border-slate-700/60 pt-4 mt-2">
+                        <div className="space-y-3 border-t border-slate-100 pt-4 mt-2">
                           {/* Admin Kasir PIN */}
-                          <div className="bg-slate-900/80 rounded-2xl p-3 border border-slate-700/80 flex items-center justify-between">
+                          <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 flex items-center justify-between">
                             <div>
-                              <div className="text-[10px] font-bold uppercase text-amber-400 tracking-wider">
+                              <div className="text-[10px] font-bold uppercase text-[#FF7A00] tracking-wider">
                                 ADMIN KASIR (STOK)
                               </div>
-                              <div className="text-sm font-bold text-white">
+                              <div className="text-sm font-extrabold text-slate-900">
                                 {adminStaff ? adminStaff.name : "Belum terhubung"}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono bg-amber-500/20 text-amber-300 font-bold px-2.5 py-1 rounded-lg text-sm border border-amber-500/30">
+                              <span className="font-mono bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded-lg text-sm border border-amber-300">
                                 PIN: {adminStaff?.pin ?? "—"}
                               </span>
                               {adminStaff && (
@@ -441,7 +446,7 @@ function SuperAdminDashboardPage() {
                                       currentPin: adminStaff.pin,
                                     })
                                   }
-                                  className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg border border-slate-700"
+                                  className="p-1.5 text-slate-600 hover:text-slate-900 bg-white rounded-lg border border-slate-200 shadow-xs"
                                 >
                                   <Key className="h-3.5 w-3.5" />
                                 </button>
@@ -450,17 +455,17 @@ function SuperAdminDashboardPage() {
                           </div>
 
                           {/* Kasir PIN */}
-                          <div className="bg-slate-900/80 rounded-2xl p-3 border border-slate-700/80 flex items-center justify-between">
+                          <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 flex items-center justify-between">
                             <div>
-                              <div className="text-[10px] font-bold uppercase text-emerald-400 tracking-wider">
+                              <div className="text-[10px] font-bold uppercase text-blue-700 tracking-wider">
                                 KASIR (POS & DISPLAY)
                               </div>
-                              <div className="text-sm font-bold text-white">
+                              <div className="text-sm font-extrabold text-slate-900">
                                 {kasirStaff ? kasirStaff.name : "Belum terhubung"}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-1 rounded-lg text-sm border border-emerald-500/30">
+                              <span className="font-mono bg-blue-100 text-blue-900 font-bold px-2.5 py-1 rounded-lg text-sm border border-blue-300">
                                 PIN: {kasirStaff?.pin ?? "—"}
                               </span>
                               {kasirStaff && (
@@ -472,7 +477,7 @@ function SuperAdminDashboardPage() {
                                       currentPin: kasirStaff.pin,
                                     })
                                   }
-                                  className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg border border-slate-700"
+                                  className="p-1.5 text-slate-600 hover:text-slate-900 bg-white rounded-lg border border-slate-200 shadow-xs"
                                 >
                                   <Key className="h-3.5 w-3.5" />
                                 </button>
@@ -492,33 +497,33 @@ function SuperAdminDashboardPage() {
 
       {/* Modal Add User */}
       {showAddUserModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-3xl p-8 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-extrabold text-white mb-1">Tambah User / Petugas Baru</h3>
-            <p className="text-xs text-slate-400 mb-6">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-extrabold text-[#003B8F] mb-1">Tambah User Baru</h3>
+            <p className="text-xs text-slate-500 mb-6">
               Buatkan user dan PIN unik untuk dihubungkan ke outlet tertentu.
             </p>
 
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Nama User</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nama User</label>
                 <input
                   type="text"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="Contoh: Budi Kenangan"
                   required
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-amber-400"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 focus:outline-none focus:border-[#003B8F]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Pilih Outlet</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Outlet</label>
                 <select
                   value={userOutletId}
                   onChange={(e) => setUserOutletId(e.target.value)}
                   required
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-amber-400"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 focus:outline-none focus:border-[#003B8F]"
                 >
                   <option value="">-- Pilih Toko / Outlet --</option>
                   {(outlets ?? []).map((o) => (
@@ -531,11 +536,11 @@ function SuperAdminDashboardPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Peran (Role)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Peran (Role)</label>
                   <select
                     value={userRole}
                     onChange={(e) => setUserRole(e.target.value as "admin" | "kasir")}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-amber-400"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 focus:outline-none focus:border-[#003B8F]"
                   >
                     <option value="admin">Admin Kasir (Stok)</option>
                     <option value="kasir">Kasir (POS)</option>
@@ -543,30 +548,30 @@ function SuperAdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-amber-300 mb-1">PIN Login (Unik)</label>
+                  <label className="block text-xs font-bold text-[#FF7A00] mb-1">PIN Login (Unik)</label>
                   <input
                     type="text"
                     value={userPin}
                     onChange={(e) => setUserPin(e.target.value)}
                     placeholder="Contoh: 5555"
                     required
-                    className="w-full bg-slate-900 border border-amber-500/40 rounded-xl py-2.5 px-3.5 text-sm text-white font-mono focus:outline-none focus:border-amber-400"
+                    className="w-full bg-slate-50 border border-amber-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 font-mono focus:outline-none focus:border-[#FF7A00]"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-700">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowAddUserModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white"
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-500 hover:text-slate-900"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingUser}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-6 py-2.5 rounded-xl text-sm shadow-lg disabled:opacity-50"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-6 py-2.5 rounded-xl text-sm shadow-md disabled:opacity-50"
                 >
                   {savingUser ? "Menyimpan..." : "Simpan User & PIN"}
                 </button>
@@ -578,75 +583,76 @@ function SuperAdminDashboardPage() {
 
       {/* Modal Add Outlet */}
       {showAddOutletModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-3xl p-8 max-w-lg w-full shadow-2xl">
-            <h3 className="text-xl font-extrabold text-white mb-1">Tambah Outlet Baru</h3>
-            <p className="text-xs text-slate-400 mb-6">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-lg w-full shadow-2xl">
+            <h3 className="text-xl font-extrabold text-[#003B8F] mb-1">Tambah Outlet Baru</h3>
+            <p className="text-xs text-slate-500 mb-6">
               Sistem akan otomatis membuatkan Admin Kasir & Kasir beserta PIN unik untuk outlet ini.
             </p>
 
             <form onSubmit={handleCreateOutlet} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Nama Outlet / Toko</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nama Outlet / Toko</label>
                 <input
                   type="text"
                   value={outletName}
                   onChange={(e) => setOutletName(e.target.value)}
                   placeholder="Contoh: Kopi Kenangan"
                   required
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-amber-400"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 focus:outline-none focus:border-[#003B8F]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Kode Unik Outlet</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Kode Unik Outlet</label>
                 <input
                   type="text"
                   value={outletCode}
                   onChange={(e) => setOutletCode(e.target.value.toUpperCase())}
                   placeholder="Contoh: KENANGAN"
                   required
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-amber-400"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 focus:outline-none focus:border-[#003B8F]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-amber-300 mb-1">PIN Admin Kasir (Stok)</label>
+                  <label className="block text-xs font-bold text-[#FF7A00] mb-1">PIN Admin Kasir (Stok)</label>
                   <input
                     type="text"
                     value={adminPin}
                     onChange={(e) => setAdminPin(e.target.value)}
                     placeholder="Misal: 1234"
                     required
-                    className="w-full bg-slate-900 border border-amber-500/40 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-amber-400 font-mono"
+                    className="w-full bg-slate-50 border border-amber-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 focus:outline-none focus:border-[#FF7A00] font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-emerald-300 mb-1">PIN Kasir (POS)</label>
+                  <label className="block text-xs font-bold text-blue-700 mb-1">PIN Kasir (POS)</label>
                   <input
                     type="text"
                     value={kasirPin}
                     onChange={(e) => setKasirPin(e.target.value)}
                     placeholder="Misal: 2222"
                     required
-                    className="w-full bg-slate-900 border border-emerald-500/40 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-emerald-400 font-mono"
+                    className="w-full bg-slate-50 border border-blue-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600 font-mono"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-700">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowAddOutletModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white"
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-500 hover:text-slate-900"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingOutlet}
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-6 py-2.5 rounded-xl text-sm shadow-lg disabled:opacity-50"
+                  className="text-white font-extrabold px-6 py-2.5 rounded-xl text-sm shadow-md disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #FF7A00, #FFB000)" }}
                 >
                   {savingOutlet ? "Menyimpan..." : "Simpan Outlet"}
                 </button>
@@ -658,23 +664,23 @@ function SuperAdminDashboardPage() {
 
       {/* Modal Edit PIN */}
       {editStaff && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-1">Ubah PIN Login</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Petugas: <b className="text-amber-400">{editStaff.name}</b>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-extrabold text-[#003B8F] mb-1">Ubah PIN Login</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Petugas: <b className="text-[#FF7A00]">{editStaff.name}</b>
             </p>
 
             <form onSubmit={handleUpdatePin} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">PIN Baru (Unik)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">PIN Baru (Unik)</label>
                 <input
                   type="text"
                   value={newPinVal}
                   onChange={(e) => setNewPinVal(e.target.value)}
                   placeholder={`PIN Lama: ${editStaff.currentPin}`}
                   required
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white font-mono focus:outline-none focus:border-amber-400"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 px-3.5 text-sm text-slate-900 font-mono focus:outline-none focus:border-[#003B8F]"
                 />
               </div>
 
@@ -682,14 +688,15 @@ function SuperAdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setEditStaff(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-900"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={updatingPin}
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-5 py-2 rounded-xl text-xs shadow-lg disabled:opacity-50"
+                  className="text-white font-extrabold px-5 py-2 rounded-xl text-xs shadow-md disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #FF7A00, #FFB000)" }}
                 >
                   {updatingPin ? "Memperbarui..." : "Update PIN"}
                 </button>
