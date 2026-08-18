@@ -1,4 +1,12 @@
--- Fix duplicate transaction_number / invoice_no unique constraint violation
+-- 1. Drop old global unique constraint on queues (queue_date, queue_number) which blocked multi-outlet queue numbers
+DROP INDEX IF EXISTS public.queues_date_number_key;
+ALTER TABLE public.queues DROP CONSTRAINT IF EXISTS queues_date_number_key;
+
+-- 2. Create new per-outlet unique index for queues
+CREATE UNIQUE INDEX IF NOT EXISTS queues_outlet_date_number_key 
+ON public.queues (queue_date, queue_number, COALESCE(outlet_id, '00000000-0000-0000-0000-000000000000'::uuid));
+
+-- 3. Update create_pos_transaction SQL function with collision-proof queue & transaction number generation
 CREATE OR REPLACE FUNCTION public.create_pos_transaction(
   _cashier_id uuid,
   _customer_name text,
@@ -59,13 +67,23 @@ BEGIN
   END IF;
   v_change := _amount_paid - v_grand;
 
-  -- serialize queue numbering per day per outlet
+  -- 1. Serialize queue numbering per day per outlet
   PERFORM pg_advisory_xact_lock(hashtext('gencb_queue_' || COALESCE(v_effective_outlet::text, 'global') || '_' || v_today::text));
   SELECT COALESCE(MAX(queue_number), 0) + 1 INTO v_queue 
   FROM queues 
   WHERE queue_date = v_today AND (outlet_id = v_effective_outlet OR (outlet_id IS NULL AND v_effective_outlet IS NULL));
 
-  -- serialize transaction_number globally per day
+  -- Loop safeguard: if (queue_date, queue_number, outlet_id) already exists, increment v_queue until unique
+  WHILE EXISTS (
+    SELECT 1 FROM queues 
+    WHERE queue_date = v_today 
+      AND queue_number = v_queue 
+      AND (outlet_id = v_effective_outlet OR (outlet_id IS NULL AND v_effective_outlet IS NULL))
+  ) LOOP
+    v_queue := v_queue + 1;
+  END LOOP;
+
+  -- 2. Serialize transaction_number globally per day
   PERFORM pg_advisory_xact_lock(hashtext('gencb_txn_global_' || v_today::text));
   SELECT COALESCE(COUNT(*), 0) + 1 INTO v_txn_seq FROM transactions WHERE created_at >= v_today::timestamp;
   
