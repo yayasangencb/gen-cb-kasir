@@ -671,6 +671,13 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
     z
       .object({
         store_name: z.string().min(1).max(80),
+        logo_url: z.string().nullable().optional(),
+        promo_image_1: z.string().nullable().optional(),
+        promo_image_2: z.string().nullable().optional(),
+        promo_image_3: z.string().nullable().optional(),
+        promo_title_1: z.string().nullable().optional(),
+        promo_title_2: z.string().nullable().optional(),
+        promo_title_3: z.string().nullable().optional(),
         address: z.string().max(200).nullable().optional(),
         phone: z.string().max(40).nullable().optional(),
         receipt_footer: z.string().max(300),
@@ -703,6 +710,33 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
       return { ok: true };
     }
     const { error } = await db.from("store_settings").update(data).eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const updateQueueStatus = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z
+      .object({
+        queueId: z.string().uuid(),
+        status: z.enum(["baru", "diproses", "selesai", "diambil", "batal"]),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const staff = await requireStaff();
+    const db = await admin();
+    const updateData: Record<string, any> = { status: data.status };
+    if (data.status === "diproses") updateData.called_at = new Date().toISOString();
+    if (data.status === "selesai") updateData.completed_at = new Date().toISOString();
+    if (data.status === "diambil") updateData.collected_at = new Date().toISOString();
+
+    let q = db.from("queues").update(updateData).eq("id", data.queueId);
+    if (staff.outletId) {
+      q = q.eq("outlet_id", staff.outletId);
+    }
+
+    const { error } = await q;
     if (error) throw new Error(error.message);
     return { ok: true };
   });

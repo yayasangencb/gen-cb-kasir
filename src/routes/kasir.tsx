@@ -1,15 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Search, ShoppingCart, Trash2, Monitor, Tv, ExternalLink } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Minus, Plus, Search, ShoppingCart, Trash2, Monitor, Tv, ExternalLink, Clock, CheckCircle2, Play, Bell } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { PaymentModal, type PaymentMethod } from "@/components/PaymentModal";
 import { ReceiptModal, type ReceiptData } from "@/components/ReceiptModal";
 import { getCurrentStaff } from "@/lib/auth.functions";
 import { rupiah } from "@/lib/format";
-import { checkout, listCatalog } from "@/lib/pos.functions";
+import { checkout, listCatalog, listActiveOrders, updateQueueStatus } from "@/lib/pos.functions";
 
 export const Route = createFileRoute("/kasir")({
   head: () => ({ meta: [{ title: "Kasir POS — Gen CB Kasir" }] }),
@@ -27,11 +27,19 @@ type CartLine = { product_id: string; product_name: string; price: number; qty: 
 function KasirPage() {
   const staff = Route.useLoaderData();
   const fetchCatalog = useServerFn(listCatalog);
+  const fetchActiveOrders = useServerFn(listActiveOrders);
   const doCheckout = useServerFn(checkout);
+  const doUpdateQueue = useServerFn(updateQueueStatus);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["catalog"],
     queryFn: () => fetchCatalog({}),
+  });
+
+  const { data: activeOrders, refetch: refetchActiveOrders } = useQuery({
+    queryKey: ["pos_active_orders"],
+    queryFn: () => fetchActiveOrders(),
+    refetchInterval: 4000,
   });
 
   const [q, setQ] = useState("");
@@ -39,6 +47,21 @@ function KasirPage() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [showPay, setShowPay] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+
+  // Broadcast Live Cart to Customer Display (/display-pesanan)
+  useEffect(() => {
+    try {
+      const bc = new BroadcastChannel("gencb_pos_cart");
+      bc.postMessage({
+        items: cart,
+        total: cart.reduce((s, l) => s + l.price * l.qty, 0),
+        showQris: showPay,
+      });
+      bc.close();
+    } catch (e) {
+      // broadcast fallback
+    }
+  }, [cart, showPay]);
 
   const products = useMemo(() => {
     const list = data?.products ?? [];
@@ -107,8 +130,19 @@ function KasirPage() {
       setCart([]);
       setShowPay(false);
       refetch();
+      refetchActiveOrders();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal memproses transaksi");
+    }
+  };
+
+  const handleStatusChange = async (queueId: string, status: "baru" | "diproses" | "selesai" | "diambil" | "batal") => {
+    try {
+      await doUpdateQueue({ data: { queueId, status } });
+      toast.success(`Status antrean diperbarui ke ${status.toUpperCase()}`);
+      refetchActiveOrders();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memperbarui status");
     }
   };
 
@@ -121,15 +155,15 @@ function KasirPage() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-amber-100 px-3 py-0.5 text-xs font-bold text-amber-900 border border-amber-300">
-                  {staff.outletName ?? "Outlet Kasir"}
+                  {staff.outletName ?? "Kasir Outlet"}
                 </span>
                 <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">POS</span>
               </div>
-              <h1 className="text-2xl font-extrabold text-[color:var(--brand-deep)]">Kasir POS</h1>
+              <h1 className="text-2xl font-extrabold text-slate-900">Kasir POS</h1>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* Display Links (Open in New Tab) */}
+              {/* Display Links */}
               <a
                 href="/display-pesanan"
                 target="_blank"
@@ -156,7 +190,7 @@ function KasirPage() {
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Cari produk..."
-                  className="w-48 sm:w-60 rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-[color:var(--brand)]"
+                  className="w-48 sm:w-60 rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-amber-500"
                 />
               </div>
             </div>
@@ -193,7 +227,7 @@ function KasirPage() {
                       key={p.id}
                       onClick={() => addToCart({ id: p.id, name: p.name, price: priceVal, stock: p.stock })}
                       disabled={p.stock <= 0}
-                      className="group relative flex flex-col items-start rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-border transition hover:-translate-y-0.5 hover:shadow-md hover:ring-[color:var(--brand)]/40 disabled:opacity-50"
+                      className="group relative flex flex-col items-start rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-border transition hover:-translate-y-0.5 hover:shadow-md hover:ring-amber-500/40 disabled:opacity-50"
                     >
                       <div
                         className="mb-3 grid h-24 w-full place-items-center rounded-xl text-3xl font-black text-white"
@@ -202,11 +236,11 @@ function KasirPage() {
                         {p.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="line-clamp-2 min-h-[2.5rem] font-semibold">{p.name}</div>
-                      <div className="mt-1 text-lg font-extrabold text-[color:var(--brand-deep)]">
+                      <div className="mt-1 text-lg font-extrabold text-slate-900">
                         {rupiah(priceVal)}
                       </div>
                       <div
-                        className={`mt-1 text-[11px] font-semibold ${p.stock <= 5 ? "text-destructive" : "text-muted-foreground"}`}
+                        className={`mt-1 text-[11px] font-semibold ${p.stock <= 5 ? "text-rose-600 font-bold" : "text-slate-500"}`}
                       >
                         Stok: {p.stock}
                       </div>
@@ -216,16 +250,81 @@ function KasirPage() {
               </div>
             )}
           </div>
+
+          {/* ACTIVE QUEUE PIPELINE CONTROLLER (REVISI 6) */}
+          {(activeOrders ?? []).length > 0 && (
+            <div className="mt-4 pt-3 border-t border-slate-200 bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-amber-600" />
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    Kontroler Status Pesanan Aktif ({(activeOrders ?? []).length})
+                  </h3>
+                </div>
+                <span className="text-[11px] text-slate-500 font-semibold">Klik pill untuk mengubah status:</span>
+              </div>
+
+              <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                {(activeOrders ?? []).slice(0, 5).map((ord: any) => {
+                  const status = ord.status || "baru";
+                  return (
+                    <div
+                      key={ord.id}
+                      className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 min-w-[200px] shrink-0 space-y-2"
+                    >
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className="text-amber-700">No. #{ord.queue_number}</span>
+                        <span className="text-slate-600 truncate max-w-[90px]">{ord.customer_name || "Umum"}</span>
+                      </div>
+
+                      {/* Status Action Buttons */}
+                      <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 text-[10px] font-extrabold">
+                        <button
+                          onClick={() => handleStatusChange(ord.id, "diproses")}
+                          className={`px-2 py-1 rounded transition ${
+                            status === "diproses" ? "bg-amber-500 text-slate-950 shadow" : "text-slate-500 hover:bg-slate-100"
+                          }`}
+                          title="Tandai Sedang Diproses"
+                        >
+                          <Play className="h-3 w-3 inline mr-0.5" /> Pros
+                        </button>
+
+                        <button
+                          onClick={() => handleStatusChange(ord.id, "selesai")}
+                          className={`px-2 py-1 rounded transition ${
+                            status === "selesai" ? "bg-emerald-500 text-white shadow" : "text-slate-500 hover:bg-slate-100"
+                          }`}
+                          title="Tandai Siap Diambil / Selesai"
+                        >
+                          <Bell className="h-3 w-3 inline mr-0.5" /> Siap
+                        </button>
+
+                        <button
+                          onClick={() => handleStatusChange(ord.id, "diambil")}
+                          className={`px-2 py-1 rounded transition ${
+                            status === "diambil" ? "bg-blue-600 text-white shadow" : "text-slate-500 hover:bg-slate-100"
+                          }`}
+                          title="Tandai Sudah Diambil Pelanggan"
+                        >
+                          <CheckCircle2 className="h-3 w-3 inline mr-0.5" /> Ambil
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Cart Sidebar */}
-        <aside className="flex min-h-0 flex-col border-l border-border bg-white/80 backdrop-blur">
+        <aside className="flex min-h-0 flex-col border-l border-border bg-white/90 backdrop-blur">
           <div className="border-b border-border p-5">
             <div className="flex items-center gap-3">
-              <ShoppingCart className="h-6 w-6 text-[color:var(--brand)]" />
+              <ShoppingCart className="h-6 w-6 text-amber-600" />
               <div>
                 <div className="text-xs uppercase tracking-widest text-muted-foreground">Keranjang Belanja</div>
-                <div className="text-lg font-extrabold text-[color:var(--brand-deep)]">{cart.length} item</div>
+                <div className="text-lg font-extrabold text-slate-900">{cart.length} item</div>
               </div>
               <div className="ml-auto text-right text-xs text-muted-foreground">
                 Petugas: <b className="text-foreground">{staff.name}</b>
@@ -270,12 +369,12 @@ function KasirPage() {
                         <div className="w-8 text-center font-bold">{l.qty}</div>
                         <button
                           onClick={() => setQty(l.product_id, l.qty + 1)}
-                          className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--brand)] text-white"
+                          className="grid h-8 w-8 place-items-center rounded-full bg-amber-500 text-slate-950 font-bold"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
                       </div>
-                      <div className="font-extrabold text-[color:var(--brand-deep)]">{rupiah(l.price * l.qty)}</div>
+                      <div className="font-extrabold text-slate-900">{rupiah(l.price * l.qty)}</div>
                     </div>
                   </div>
                 ))}
@@ -290,20 +389,20 @@ function KasirPage() {
             </div>
             <div className="mb-4 flex items-baseline justify-between">
               <span className="text-sm font-semibold text-muted-foreground">TOTAL PENJUALAN</span>
-              <span className="text-3xl font-extrabold text-[color:var(--brand-deep)]">{rupiah(total)}</span>
+              <span className="text-3xl font-extrabold text-slate-900">{rupiah(total)}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setCart([])}
                 disabled={cart.length === 0}
-                className="rounded-2xl bg-secondary py-4 font-bold text-[color:var(--brand-deep)] disabled:opacity-40"
+                className="rounded-2xl bg-secondary py-4 font-bold text-slate-700 disabled:opacity-40"
               >
                 Kosongkan
               </button>
               <button
                 onClick={() => setShowPay(true)}
                 disabled={cart.length === 0}
-                className="btn-orange rounded-2xl py-4 font-extrabold disabled:opacity-50"
+                className="rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 py-4 font-black shadow-lg disabled:opacity-50"
               >
                 Bayar Sekarang
               </button>
@@ -324,10 +423,9 @@ function CatChip({ active, onClick, children }: { active: boolean; onClick: () =
       onClick={onClick}
       className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
         active
-          ? "text-white shadow-md"
-          : "bg-white text-muted-foreground ring-1 ring-border hover:text-[color:var(--brand-deep)]"
+          ? "bg-amber-500 text-slate-950 font-bold shadow-md"
+          : "bg-white text-slate-600 ring-1 ring-border hover:text-slate-900"
       }`}
-      style={active ? { background: "linear-gradient(135deg,#002B7F,#0047B3)" } : undefined}
     >
       {children}
     </button>

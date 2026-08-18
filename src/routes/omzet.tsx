@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -9,8 +9,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
 } from "recharts";
 import {
   BarChart3,
@@ -21,6 +19,14 @@ import {
   ShoppingBag,
   TrendingDown,
   TrendingUp,
+  LayoutGrid,
+  Clock,
+  Boxes,
+  Package,
+  Settings,
+  Receipt,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
@@ -29,7 +35,7 @@ import { rupiah } from "@/lib/format";
 import { omzetReport } from "@/lib/pos.functions";
 
 export const Route = createFileRoute("/omzet")({
-  head: () => ({ meta: [{ title: "Laporan Omzet — Gen CB Kasir" }] }),
+  head: () => ({ meta: [{ title: "Dashboard & Omzet — Kasir Outlet" }] }),
   beforeLoad: async () => {
     const staff = await getCurrentStaff();
     if (!staff) throw redirect({ to: "/login" });
@@ -105,22 +111,48 @@ function OmzetPage() {
       ? "100"
       : "0";
 
+  const outletTitle = staff.outletName ?? "Outlet Kasir";
+
   return (
     <AppShell staff={staff}>
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold text-[color:var(--brand-deep)]">Omzet & Laporan Penjualan</h1>
-            <p className="text-sm text-muted-foreground">
-              Analisis performa penjualan, omzet bersih, metode pembayaran, dan produk terlaris.
+            <div className="flex items-center gap-2 mb-1">
+              <span className="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-0.5 rounded-full text-xs">
+                {outletTitle}
+              </span>
+              <span className="text-xs text-slate-500 font-bold">PANEL ADMIN KASIR</span>
+            </div>
+            <h1 className="text-3xl font-extrabold text-slate-900">Dashboard & Ringkasan Omzet</h1>
+            <p className="text-xs text-slate-500">
+              Pengelolaan lengkap stok, omzet penjualan harian, transaksi, dan pengaturan display outlet.
             </p>
           </div>
         </div>
 
+        {/* AKSI CEPAT / QUICK ACTIONS (REVISI 2) */}
+        <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-200">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="h-5 w-5 text-amber-500" />
+            <h2 className="text-base font-black text-slate-900 uppercase tracking-wider">AKSI CEPAT ADMIN</h2>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <QuickActionButton to="/kasir" icon={LayoutGrid} label="Kasir POS" color="bg-blue-600 text-white" />
+            <QuickActionButton to="/pesanan-aktif" icon={Clock} label="Pesanan Aktif" color="bg-purple-600 text-white" />
+            <QuickActionButton to="/stok" icon={Boxes} label="Kelola Stok" color="bg-emerald-600 text-white" />
+            <QuickActionButton to="/produk" icon={Package} label="Tambah Produk" color="bg-amber-500 text-slate-950 font-black" />
+            <QuickActionButton to="/omzet" icon={BarChart3} label="Lihat Omzet" color="bg-slate-900 text-white" />
+            <QuickActionButton to="/transaksi" icon={Receipt} label="Laporan Transaksi" color="bg-teal-600 text-white" />
+            <QuickActionButton to="/pengaturan" icon={Settings} label="Pengaturan Toko" color="bg-slate-800 text-white" />
+          </div>
+        </div>
+
         {/* Preset & Filters Toolbar */}
-        <div className="flex flex-wrap items-center gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-border">
-          <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground mr-2">
+        <div className="flex flex-wrap items-center gap-3 rounded-3xl bg-white p-4 shadow-sm border border-slate-200">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mr-2">
             <Filter className="h-4 w-4" /> Periode:
           </div>
 
@@ -149,20 +181,20 @@ function OmzetPage() {
           </div>
 
           {preset === "custom" && (
-            <div className="flex items-center gap-2 text-xs font-semibold border-l border-border pl-3 mt-2 sm:mt-0">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 text-xs font-semibold border-l border-slate-200 pl-3 mt-2 sm:mt-0">
+              <Calendar className="h-4 w-4 text-slate-400" />
               <input
                 type="date"
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="rounded-xl border border-border bg-secondary/50 px-3 py-1.5 outline-none"
+                className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 outline-none"
               />
               <span>s/d</span>
               <input
                 type="date"
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="rounded-xl border border-border bg-secondary/50 px-3 py-1.5 outline-none"
+                className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 outline-none"
               />
             </div>
           )}
@@ -170,26 +202,26 @@ function OmzetPage() {
 
         {/* Omzet Net Header Card & Comparison */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2 rounded-3xl bg-gradient-to-r from-[#002B7F] to-[#0047B3] p-8 text-white shadow-md flex flex-col justify-between">
+          <div className="lg:col-span-2 rounded-3xl bg-slate-900 p-8 text-white shadow-xl flex flex-col justify-between border border-slate-800">
             <div>
-              <div className="text-xs uppercase font-extrabold tracking-widest text-white/80">
-                Total Omzet Bersih Periode Ini
+              <div className="text-xs uppercase font-extrabold tracking-widest text-amber-400">
+                Total Omzet Bersih ({outletTitle})
               </div>
-              <div className="mt-2 text-4xl sm:text-5xl font-black">{isLoading ? "..." : rupiah(data?.net ?? 0)}</div>
+              <div className="mt-2 text-4xl sm:text-5xl font-black text-white">{isLoading ? "..." : rupiah(data?.net ?? 0)}</div>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-between border-t border-white/20 pt-4 text-xs font-semibold">
+            <div className="mt-6 flex flex-wrap items-center justify-between border-t border-slate-800 pt-4 text-xs font-semibold">
               <div className="flex items-center gap-2">
                 {diffNet >= 0 ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 px-3 py-1 text-emerald-300 font-extrabold border border-emerald-400/30">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-300 font-extrabold border border-emerald-500/30">
                     <TrendingUp className="h-4 w-4" /> Naik {percentDiff}% ({rupiah(diffNet)})
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-400/20 px-3 py-1 text-red-300 font-extrabold border border-red-400/30">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 px-3 py-1 text-rose-300 font-extrabold border border-rose-500/30">
                     <TrendingDown className="h-4 w-4" /> Turun {Math.abs(Number(percentDiff))}% ({rupiah(Math.abs(diffNet))})
                   </span>
                 )}
-                <span className="text-white/80">dibanding periode sebelumnya</span>
+                <span className="text-slate-400">dibanding periode sebelumnya</span>
               </div>
             </div>
           </div>
@@ -216,14 +248,14 @@ function OmzetPage() {
         {/* Charts Section */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Daily Revenue Chart */}
-          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-border">
-            <h2 className="text-base font-extrabold text-[color:var(--brand-deep)] mb-4">
+          <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-200">
+            <h2 className="text-base font-extrabold text-slate-900 mb-4">
               Grafik Penjualan Harian
             </h2>
             {isLoading ? (
-              <div className="h-64 animate-pulse rounded-2xl bg-secondary" />
+              <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
             ) : (data?.daily.length ?? 0) === 0 ? (
-              <div className="grid h-64 place-items-center text-xs text-muted-foreground font-bold">
+              <div className="grid h-64 place-items-center text-xs text-slate-400 font-bold">
                 Belum ada penjualan pada periode ini.
               </div>
             ) : (
@@ -234,7 +266,7 @@ function OmzetPage() {
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${v / 1000}k`} />
                     <Tooltip formatter={(value: any) => [rupiah(Number(value)), "Omzet Bersih"]} />
-                    <Bar dataKey="net" fill="#0047B3" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="net" fill="#f59e0b" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -242,30 +274,30 @@ function OmzetPage() {
           </div>
 
           {/* Payment Method Breakdown */}
-          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-border">
-            <h2 className="text-base font-extrabold text-[color:var(--brand-deep)] mb-4">
+          <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-200">
+            <h2 className="text-base font-extrabold text-slate-900 mb-4">
               Metode Pembayaran Terbanyak
             </h2>
             {isLoading ? (
-              <div className="h-64 animate-pulse rounded-2xl bg-secondary" />
+              <div className="h-64 animate-pulse rounded-2xl bg-slate-100" />
             ) : (data?.methods.length ?? 0) === 0 ? (
-              <div className="grid h-64 place-items-center text-xs text-muted-foreground font-bold">
+              <div className="grid h-64 place-items-center text-xs text-slate-400 font-bold">
                 Belum ada data pembayaran.
               </div>
             ) : (
               <div className="space-y-3">
                 {(data?.methods ?? []).map((m) => (
-                  <div key={m.method} className="flex items-center justify-between rounded-2xl bg-secondary/70 p-3.5">
+                  <div key={m.method} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3.5 border border-slate-200">
                     <div className="flex items-center gap-3">
-                      <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-[color:var(--brand-deep)] shadow-xs ring-1 ring-border">
+                      <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-slate-900 shadow-xs border border-slate-200">
                         <CreditCard className="h-5 w-5" />
                       </div>
                       <div>
-                        <div className="font-extrabold uppercase text-xs text-[color:var(--brand-deep)]">{m.method}</div>
-                        <div className="text-[11px] text-muted-foreground font-semibold">{m.count} Transaksi</div>
+                        <div className="font-extrabold uppercase text-xs text-slate-900">{m.method}</div>
+                        <div className="text-[11px] text-slate-500 font-semibold">{m.count} Transaksi</div>
                       </div>
                     </div>
-                    <div className="text-right font-black text-sm text-[color:var(--brand-deep)]">
+                    <div className="text-right font-black text-sm text-slate-900">
                       {rupiah(m.amount)}
                     </div>
                   </div>
@@ -274,69 +306,20 @@ function OmzetPage() {
             )}
           </div>
         </div>
-
-        {/* Detailed Summary Table */}
-        <div className="glass-card overflow-hidden rounded-3xl shadow-md border border-border">
-          <div className="p-5 border-b border-border bg-white flex items-center justify-between">
-            <h2 className="text-lg font-extrabold text-[color:var(--brand-deep)]">Rincian Penjualan Harian</h2>
-            <span className="text-xs text-muted-foreground font-semibold">Omzet Kotor - Diskon - Refund = Omzet Bersih</span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[color:var(--brand-deep)] text-white font-extrabold uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3.5">Tanggal</th>
-                  <th className="px-4 py-3.5 text-center">Transaksi</th>
-                  <th className="px-4 py-3.5 text-center">Item Terjual</th>
-                  <th className="px-4 py-3.5 text-right">Omzet Kotor</th>
-                  <th className="px-4 py-3.5 text-right">Diskon</th>
-                  <th className="px-4 py-3.5 text-right">Refund</th>
-                  <th className="px-4 py-3.5 text-right">Omzet Bersih</th>
-                  <th className="px-4 py-3.5 text-right">Tunai</th>
-                  <th className="px-4 py-3.5 text-right">Non-Tunai</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60 bg-white font-semibold">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                      Memuat laporan...
-                    </td>
-                  </tr>
-                ) : (data?.daily.length ?? 0) === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="p-12 text-center text-muted-foreground">
-                      Belum ada penjualan pada periode ini.
-                    </td>
-                  </tr>
-                ) : (
-                  (data?.daily ?? []).map((row) => (
-                    <tr key={row.date} className="hover:bg-secondary/40 transition">
-                      <td className="px-4 py-3.5 font-bold text-[color:var(--brand-deep)]">{row.date}</td>
-                      <td className="px-4 py-3.5 text-center font-bold">{row.count}</td>
-                      <td className="px-4 py-3.5 text-center text-muted-foreground">{row.items}</td>
-                      <td className="px-4 py-3.5 text-right text-muted-foreground">{rupiah(row.gross)}</td>
-                      <td className="px-4 py-3.5 text-right text-amber-600">
-                        {row.discount > 0 ? `- ${rupiah(row.discount)}` : "-"}
-                      </td>
-                      <td className="px-4 py-3.5 text-right text-red-600">
-                        {row.refund > 0 ? `- ${rupiah(row.refund)}` : "-"}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-black text-sm text-[color:var(--brand-deep)]">
-                        {rupiah(row.net)}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-emerald-700">{rupiah(row.cash)}</td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-sky-700">{rupiah(row.noncash)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </AppShell>
+  );
+}
+
+function QuickActionButton({ to, icon: Icon, label, color }: { to: string; icon: any; label: string; color: string }) {
+  return (
+    <Link
+      to={to as any}
+      className={`flex flex-col items-center justify-center p-3.5 rounded-2xl shadow-sm transition hover:scale-105 ${color}`}
+    >
+      <Icon className="h-5 w-5 mb-1.5" />
+      <span className="text-xs font-bold text-center leading-tight">{label}</span>
+    </Link>
   );
 }
 
@@ -344,10 +327,10 @@ function PresetButton({ active, onClick, children }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-xs font-extrabold transition shadow-2xs ${
+      className={`rounded-full px-3.5 py-1.5 text-xs font-extrabold transition ${
         active
-          ? "bg-[color:var(--brand-deep)] text-white shadow-sm"
-          : "bg-white text-muted-foreground ring-1 ring-border/80 hover:text-[color:var(--brand-deep)]"
+          ? "bg-amber-500 text-slate-950 font-bold shadow"
+          : "bg-white text-slate-600 border border-slate-200 hover:text-slate-900"
       }`}
     >
       {children}
@@ -357,13 +340,13 @@ function PresetButton({ active, onClick, children }: { active: boolean; onClick:
 
 function SummaryStatCard({ title, value, icon: Icon }: { title: string; value: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-border">
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-[color:var(--brand-deep)] font-extrabold">
+    <div className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm border border-slate-200">
+      <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500/10 text-amber-600 font-extrabold">
         <Icon className="h-5 w-5" />
       </div>
       <div>
-        <div className="text-[10px] uppercase font-bold text-muted-foreground">{title}</div>
-        <div className="text-lg font-black text-[color:var(--brand-deep)]">{value}</div>
+        <div className="text-[10px] uppercase font-bold text-slate-500">{title}</div>
+        <div className="text-lg font-black text-slate-900">{value}</div>
       </div>
     </div>
   );
