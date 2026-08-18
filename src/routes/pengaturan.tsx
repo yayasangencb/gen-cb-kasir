@@ -101,6 +101,11 @@ function PengaturanPage() {
     setBusy(true);
     try {
       await saveSettings({ data: form });
+      try {
+        const bc = new BroadcastChannel("gencb_settings_update");
+        bc.postMessage({ updated: true });
+        bc.close();
+      } catch (e) {}
       toast.success("Pengaturan toko & gambar promo berhasil disimpan!");
       refetch();
     } catch (err) {

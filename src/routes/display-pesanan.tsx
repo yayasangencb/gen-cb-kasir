@@ -25,10 +25,10 @@ function CustomerFacingDisplayPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [liveCart, setLiveCart] = useState<LiveCartMessage>({ items: [], total: 0, showQris: false });
 
-  const { data: settings } = useQuery({
+  const { data: settings, refetch: refetchSettings } = useQuery({
     queryKey: ["display_store_settings"],
     queryFn: () => fetchSettings({}),
-    refetchInterval: 10000,
+    refetchInterval: 2000,
   });
 
   const { data: activeOrders } = useQuery({
@@ -37,14 +37,23 @@ function CustomerFacingDisplayPage() {
     refetchInterval: 3000,
   });
 
-  // Listen to live BroadcastChannel from Kasir POS
+  // Listen to live BroadcastChannel from Kasir POS & Settings
   useEffect(() => {
-    const bc = new BroadcastChannel("gencb_pos_cart");
-    bc.onmessage = (ev) => {
+    const bcCart = new BroadcastChannel("gencb_pos_cart");
+    bcCart.onmessage = (ev) => {
       if (ev.data) setLiveCart(ev.data);
     };
-    return () => bc.close();
-  }, []);
+
+    const bcSettings = new BroadcastChannel("gencb_settings_update");
+    bcSettings.onmessage = () => {
+      refetchSettings();
+    };
+
+    return () => {
+      bcCart.close();
+      bcSettings.close();
+    };
+  }, [refetchSettings]);
 
   // Promo Banners from Store Settings
   const promoSlides = [
