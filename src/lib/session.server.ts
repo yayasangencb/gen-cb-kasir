@@ -1,11 +1,13 @@
 import { useSession } from "@tanstack/react-start/server";
 
-export type StaffRole = "admin" | "kasir";
+export type StaffRole = "super_admin" | "admin" | "kasir";
 
 export type SessionData = {
   staffId?: string;
   name?: string;
   role?: StaffRole;
+  outletId?: string | null;
+  outletName?: string | null;
   displayUnlocked?: boolean;
 };
 

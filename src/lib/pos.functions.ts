@@ -1,18 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-type Role = "admin" | "kasir";
+type Role = "super_admin" | "admin" | "kasir";
 
 async function requireStaff() {
   const { getGateSession } = await import("@/lib/session.server");
   const session = await getGateSession();
   if (!session.data.staffId || !session.data.role) throw new Error("Belum login");
-  return { id: session.data.staffId, name: session.data.name ?? "", role: session.data.role as Role };
+  return {
+    id: session.data.staffId,
+    name: session.data.name ?? "",
+    role: session.data.role as Role,
+    outletId: session.data.outletId ?? null,
+    outletName: session.data.outletName ?? null,
+  };
 }
 
 async function requireAdmin() {
   const staff = await requireStaff();
-  if (staff.role !== "admin") throw new Error("Akses ditolak: hanya Admin");
+  if (staff.role !== "admin" && staff.role !== "super_admin") throw new Error("Akses ditolak: hanya Admin");
   return staff;
 }
 
@@ -28,12 +34,18 @@ function today() {
 /* ------------------------------- CATALOG ------------------------------- */
 
 export const listCatalog = createServerFn({ method: "GET" }).handler(async () => {
-  await requireStaff();
+  const staff = await requireStaff();
   const db = await admin();
-  const [cats, prods] = await Promise.all([
-    db.from("categories").select("*").eq("is_active", true).order("sort_order"),
-    db.from("products").select("*").eq("is_active", true).order("name"),
-  ]);
+
+  let catQuery = db.from("categories").select("*").eq("is_active", true).order("sort_order");
+  let prodQuery = db.from("products").select("*").eq("is_active", true).order("name");
+
+  if (staff.outletId) {
+    catQuery = catQuery.eq("outlet_id", staff.outletId);
+    prodQuery = prodQuery.eq("outlet_id", staff.outletId);
+  }
+
+  const [cats, prods] = await Promise.all([catQuery, prodQuery]);
   return { categories: cats.data ?? [], products: prods.data ?? [] };
 });
 
@@ -71,6 +83,7 @@ export const checkout = createServerFn({ method: "POST" })
       _amount_paid: data.amount_paid,
       _notes: data.notes ?? "",
       _items: data.items,
+      _outlet_id: staff.outletId,
     });
     if (error) throw new Error(error.message.replace(/^.*ERROR:\s*/i, ""));
     const out = result as unknown as { transaction_id: string; queue_number: number };
@@ -122,16 +135,21 @@ export const getReceipt = createServerFn({ method: "GET" })
 /* --------------------------- ACTIVE ORDERS ---------------------------- */
 
 export const listActiveOrders = createServerFn({ method: "GET" }).handler(async () => {
-  await requireStaff();
+  const staff = await requireStaff();
   const db = await admin();
-  const { data } = await db
+  let q = db
     .from("queues")
     .select(
       "id, queue_number, status, customer_name, created_at, started_at, completed_at, transaction_id, transactions(transaction_number, grand_total, order_type, payment_method, notes, cashier_name, transaction_items(product_name_snapshot, quantity, notes))",
     )
     .eq("queue_date", today())
-    .in("status", ["baru", "diproses", "selesai"])
-    .order("queue_number");
+    .in("status", ["baru", "diproses", "selesai"]);
+
+  if (staff.outletId) {
+    q = q.eq("outlet_id", staff.outletId);
+  }
+
+  const { data } = await q.order("queue_number");
   return data ?? [];
 });
 
@@ -170,13 +188,18 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
 export const listTransactions = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ from: z.string().optional(), to: z.string().optional() }).parse(d ?? {}))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const staff = await requireAdmin();
     const db = await admin();
     let q = db
       .from("transactions")
       .select("*, transaction_items(*), queues(queue_number, status)")
       .order("created_at", { ascending: false })
       .limit(300);
+
+    if (staff.outletId) {
+      q = q.eq("outlet_id", staff.outletId);
+    }
+
     if (data.from) q = q.gte("created_at", data.from);
     if (data.to) q = q.lte("created_at", data.to);
     const { data: rows } = await q;
@@ -188,13 +211,17 @@ export const listMyRecentTransactions = createServerFn({ method: "GET" }).handle
   const staff = await requireStaff();
   const db = await admin();
   const since = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const { data } = await db
+  let q = db
     .from("transactions")
     .select("id, transaction_number, grand_total, payment_method, created_at, customer_name, queues(queue_number, status)")
     .eq("cashier_id", staff.id)
-    .gte("created_at", since)
-    .order("created_at", { ascending: false })
-    .limit(20);
+    .gte("created_at", since);
+
+  if (staff.outletId) {
+    q = q.eq("outlet_id", staff.outletId);
+  }
+
+  const { data } = await q.order("created_at", { ascending: false }).limit(20);
   return data ?? [];
 });
 
@@ -235,6 +262,7 @@ export const upsertProduct = createServerFn({ method: "POST" })
       image_url: data.image_url ?? null,
       is_available: data.is_available,
       is_active: data.is_active,
+      outlet_id: staff.outletId,
     };
     if (data.id) {
       const { error } = await db.from("products").update(payload).eq("id", data.id);
@@ -267,6 +295,15 @@ export const deleteProduct = createServerFn({ method: "POST" })
     if (error) throw new Error("Produk sudah pernah terjual sehingga tidak dapat dihapus. Nonaktifkan produk saja.");
     return { ok: true };
   });
+
+export const clearOutletCatalog = createServerFn({ method: "POST" }).handler(async () => {
+  const staff = await requireAdmin();
+  if (!staff.outletId) throw new Error("Outlet ID tidak ditemukan");
+  const db = await admin();
+  const { data, error } = await db.rpc("clear_outlet_catalog", { _outlet_id: staff.outletId });
+  if (error) throw new Error(error.message);
+  return { ok: true as const, details: data };
+});
 
 export const uploadProductImage = createServerFn({ method: "POST" })
   .inputValidator((d) =>
@@ -304,9 +341,13 @@ export const removeProductImage = createServerFn({ method: "POST" })
 /* ------------------------------ CATEGORIES ----------------------------- */
 
 export const listCategories = createServerFn({ method: "GET" }).handler(async () => {
-  await requireStaff();
+  const staff = await requireStaff();
   const db = await admin();
-  const { data } = await db.from("categories").select("*").order("sort_order");
+  let q = db.from("categories").select("*").order("sort_order");
+  if (staff.outletId) {
+    q = q.eq("outlet_id", staff.outletId);
+  }
+  const { data } = await q;
   return data ?? [];
 });
 
@@ -322,9 +363,14 @@ export const upsertCategory = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const staff = await requireAdmin();
     const db = await admin();
-    const payload = { name: data.name.trim(), sort_order: data.sort_order, is_active: data.is_active };
+    const payload = {
+      name: data.name.trim(),
+      sort_order: data.sort_order,
+      is_active: data.is_active,
+      outlet_id: staff.outletId,
+    };
     const { error } = data.id
       ? await db.from("categories").update(payload).eq("id", data.id)
       : await db.from("categories").insert(payload);
@@ -350,12 +396,17 @@ export const deleteCategory = createServerFn({ method: "POST" })
 /* --------------------------------- STOCK ------------------------------- */
 
 export const listStock = createServerFn({ method: "GET" }).handler(async () => {
-  await requireAdmin();
+  const staff = await requireAdmin();
   const db = await admin();
-  const [prods, cats] = await Promise.all([
-    db.from("products").select("*").order("name"),
-    db.from("categories").select("id, name").order("sort_order"),
-  ]);
+  let prodQ = db.from("products").select("*").order("name");
+  let catQ = db.from("categories").select("id, name").order("sort_order");
+
+  if (staff.outletId) {
+    prodQ = prodQ.eq("outlet_id", staff.outletId);
+    catQ = catQ.eq("outlet_id", staff.outletId);
+  }
+
+  const [prods, cats] = await Promise.all([prodQ, catQ]);
   return { products: prods.data ?? [], categories: cats.data ?? [] };
 });
 
@@ -396,13 +447,17 @@ export const changeStock = createServerFn({ method: "POST" })
 export const listStockMovements = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ product_id: z.string().uuid().optional() }).parse(d ?? {}))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const staff = await requireAdmin();
     const db = await admin();
     let q = db
       .from("stock_movements")
       .select("*, products(name, unit)")
       .order("created_at", { ascending: false })
       .limit(200);
+
+    if (staff.outletId) {
+      q = q.eq("outlet_id", staff.outletId);
+    }
     if (data.product_id) q = q.eq("product_id", data.product_id);
     const { data: rows } = await q;
     return rows ?? [];
@@ -417,9 +472,9 @@ const RangeSchema = z.object({
   payment_method: z.string().optional().nullable(),
 });
 
-async function fetchPaidTransactions(from: string, to: string) {
+async function fetchPaidTransactions(from: string, to: string, outletId: string | null) {
   const db = await admin();
-  const { data } = await db
+  let q = db
     .from("transactions")
     .select(
       "id, created_at, cashier_id, cashier_name, payment_method, subtotal, discount, grand_total, refund_amount, transaction_items(product_name_snapshot, quantity, subtotal, product_id)",
@@ -427,15 +482,20 @@ async function fetchPaidTransactions(from: string, to: string) {
     .eq("transaction_status", "completed")
     .eq("payment_status", "paid")
     .gte("created_at", from)
-    .lte("created_at", to)
-    .order("created_at");
+    .lte("created_at", to);
+
+  if (outletId) {
+    q = q.eq("outlet_id", outletId);
+  }
+
+  const { data } = await q.order("created_at");
   return data ?? [];
 }
 
 export const omzetReport = createServerFn({ method: "GET" })
   .inputValidator((d) => RangeSchema.parse(d))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const staff = await requireAdmin();
     const spanMs = new Date(data.to).getTime() - new Date(data.from).getTime();
     const prevFrom = new Date(new Date(data.from).getTime() - spanMs - 1).toISOString();
     const prevTo = new Date(new Date(data.from).getTime() - 1).toISOString();
@@ -448,8 +508,8 @@ export const omzetReport = createServerFn({ method: "GET" })
       );
 
     const [currentRaw, previousRaw] = await Promise.all([
-      fetchPaidTransactions(data.from, data.to),
-      fetchPaidTransactions(prevFrom, prevTo),
+      fetchPaidTransactions(data.from, data.to, staff.outletId),
+      fetchPaidTransactions(prevFrom, prevTo, staff.outletId),
     ]);
     const current = filter(currentRaw);
     const previous = filter(previousRaw);
@@ -523,30 +583,41 @@ export const omzetReport = createServerFn({ method: "GET" })
   });
 
 export const listCashiers = createServerFn({ method: "GET" }).handler(async () => {
-  await requireAdmin();
+  const staff = await requireAdmin();
   const db = await admin();
-  const { data } = await db.from("staff").select("id, name, role, is_active, created_at").order("name");
+  let q = db.from("staff").select("id, name, role, is_active, created_at").order("name");
+  if (staff.outletId) {
+    q = q.eq("outlet_id", staff.outletId);
+  }
+  const { data } = await q;
   return data ?? [];
 });
 
 /* ------------------------------- DASHBOARD ----------------------------- */
 
 export const dashboardSummary = createServerFn({ method: "GET" }).handler(async () => {
-  await requireAdmin();
+  const staff = await requireAdmin();
   const db = await admin();
   const startToday = new Date(`${today()}T00:00:00+07:00`).toISOString();
   const since7 = new Date(new Date(startToday).getTime() - 6 * 86400_000).toISOString();
 
-  const [{ data: txns }, { data: products }, { data: queues }] = await Promise.all([
-    db
-      .from("transactions")
-      .select("id, created_at, grand_total, refund_amount, transaction_items(quantity, product_name_snapshot)")
-      .eq("transaction_status", "completed")
-      .eq("payment_status", "paid")
-      .gte("created_at", since7),
-    db.from("products").select("id, name, stock, minimum_stock, is_active").eq("is_active", true),
-    db.from("queues").select("status").eq("queue_date", today()),
-  ]);
+  let txnQ = db
+    .from("transactions")
+    .select("id, created_at, grand_total, refund_amount, transaction_items(quantity, product_name_snapshot)")
+    .eq("transaction_status", "completed")
+    .eq("payment_status", "paid")
+    .gte("created_at", since7);
+
+  let prodQ = db.from("products").select("id, name, stock, minimum_stock, is_active").eq("is_active", true);
+  let queueQ = db.from("queues").select("status").eq("queue_date", today());
+
+  if (staff.outletId) {
+    txnQ = txnQ.eq("outlet_id", staff.outletId);
+    prodQ = prodQ.eq("outlet_id", staff.outletId);
+    queueQ = queueQ.eq("outlet_id", staff.outletId);
+  }
+
+  const [{ data: txns }, { data: products }, { data: queues }] = await Promise.all([txnQ, prodQ, queueQ]);
 
   const all = txns ?? [];
   const todayTxns = all.filter((t) => t.created_at >= startToday);
@@ -585,9 +656,13 @@ export const dashboardSummary = createServerFn({ method: "GET" }).handler(async 
 /* ------------------------------- SETTINGS ------------------------------ */
 
 export const getStoreSettings = createServerFn({ method: "GET" }).handler(async () => {
-  await requireStaff();
+  const staff = await requireStaff();
   const db = await admin();
-  const { data } = await db.from("store_settings").select("*").limit(1).maybeSingle();
+  let q = db.from("store_settings").select("*");
+  if (staff.outletId) {
+    q = q.eq("outlet_id", staff.outletId);
+  }
+  const { data } = await q.limit(1).maybeSingle();
   return data;
 });
 
@@ -614,23 +689,38 @@ export const updateStoreSettings = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const staff = await requireAdmin();
     const db = await admin();
-    const { data: existing } = await db.from("store_settings").select("id").limit(1).maybeSingle();
-    if (!existing) throw new Error("Pengaturan tidak ditemukan");
+    let q = db.from("store_settings").select("id");
+    if (staff.outletId) {
+      q = q.eq("outlet_id", staff.outletId);
+    }
+    const { data: existing } = await q.limit(1).maybeSingle();
+    if (!existing) {
+      // insert new settings for this outlet
+      const { error } = await db.from("store_settings").insert({ ...data, outlet_id: staff.outletId });
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
     const { error } = await db.from("store_settings").update(data).eq("id", existing.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 export const resetQueueNumbers = createServerFn({ method: "POST" }).handler(async () => {
-  await requireAdmin();
+  const staff = await requireAdmin();
   const db = await admin();
-  const { error } = await db
+  let q = db
     .from("queues")
     .update({ status: "diambil", collected_at: new Date().toISOString() })
     .eq("queue_date", today())
     .in("status", ["baru", "diproses", "selesai"]);
+
+  if (staff.outletId) {
+    q = q.eq("outlet_id", staff.outletId);
+  }
+
+  const { error } = await q;
   if (error) throw new Error(error.message);
   return { ok: true };
 });
@@ -643,18 +733,24 @@ export const upsertStaff = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid().optional(),
         name: z.string().min(1).max(80),
-        pin: z.string().regex(/^\d{4,8}$/, "PIN harus 4-8 angka"),
+        pin: z.string().regex(/^\d{3,8}$/, "PIN harus 3-8 angka"),
         role: z.enum(["admin", "kasir"]),
         is_active: z.boolean().default(true),
       })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const staff = await requireAdmin();
     const db = await admin();
     const { data: clash } = await db.from("staff").select("id").eq("pin", data.pin).maybeSingle();
-    if (clash && clash.id !== data.id) throw new Error("PIN sudah dipakai pengguna lain");
-    const payload = { name: data.name.trim(), pin: data.pin, role: data.role, is_active: data.is_active };
+    if (clash && clash.id !== data.id) throw new Error("PIN sudah dipakai pengguna/outlet lain");
+    const payload = {
+      name: data.name.trim(),
+      pin: data.pin,
+      role: data.role,
+      is_active: data.is_active,
+      outlet_id: staff.outletId,
+    };
     const { error } = data.id
       ? await db.from("staff").update(payload).eq("id", data.id)
       : await db.from("staff").insert(payload);

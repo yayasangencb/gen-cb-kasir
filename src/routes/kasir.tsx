@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
+import { Minus, Plus, Search, ShoppingCart, Trash2, Monitor, Tv, ExternalLink } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -12,7 +12,7 @@ import { rupiah } from "@/lib/format";
 import { checkout, listCatalog } from "@/lib/pos.functions";
 
 export const Route = createFileRoute("/kasir")({
-  head: () => ({ meta: [{ title: "Kasir — Gen CB Kasir" }] }),
+  head: () => ({ meta: [{ title: "Kasir POS — Gen CB Kasir" }] }),
   beforeLoad: async () => {
     const staff = await getCurrentStaff();
     if (!staff) throw redirect({ to: "/login" });
@@ -49,7 +49,8 @@ function KasirPage() {
     });
   }, [data, q, catId]);
 
-  const addToCart = (p: { id: string; name: string; price: number; stock: number }) => {
+  const addToCart = (p: { id: string; name: string; selling_price?: number; price?: number; stock: number }) => {
+    const priceVal = Number(p.selling_price ?? p.price ?? 0);
     if (p.stock <= 0) {
       toast.error("Stok habis");
       return;
@@ -61,7 +62,7 @@ function KasirPage() {
         next[idx] = { ...next[idx], qty: next[idx].qty + 1 };
         return next;
       }
-      return [...c, { product_id: p.id, product_name: p.name, price: Number(p.price), qty: 1 }];
+      return [...c, { product_id: p.id, product_name: p.name, price: priceVal, qty: 1 }];
     });
   };
 
@@ -77,27 +78,31 @@ function KasirPage() {
     try {
       const res = await doCheckout({
         data: {
-          items: cart.map((l) => ({ product_id: l.product_id, product_name: l.product_name, price: l.price, qty: l.qty })),
+          items: cart.map((l) => ({ product_id: l.product_id, quantity: l.qty })),
           discount: 0,
-          tax: 0,
-          paid,
+          amount_paid: paid,
           payment_method: method,
         },
       });
-      toast.success(`Transaksi berhasil! Antrean #${String(res.transaction.queue_no).padStart(3, "0")}`);
+      toast.success(`Transaksi berhasil! Antrean #${String(res.queue_number).padStart(3, "0")}`);
       setReceipt({
-        invoice_no: res.transaction.invoice_no,
-        queue_no: res.transaction.queue_no,
-        cashier_name: res.transaction.cashier_name,
-        created_at: res.transaction.created_at,
-        subtotal: Number(res.transaction.subtotal),
-        discount: Number(res.transaction.discount),
-        tax: Number(res.transaction.tax),
-        total: Number(res.transaction.total),
-        paid: Number(res.transaction.paid),
-        change_amount: Number(res.transaction.change_amount),
-        payment_method: res.transaction.payment_method,
-        items: res.items.map((it) => ({ product_name: it.product_name, qty: it.qty, price: Number(it.price), subtotal: Number(it.subtotal) })),
+        invoice_no: res.transaction_number,
+        queue_no: res.queue_number,
+        cashier_name: res.cashier_name,
+        created_at: res.created_at,
+        subtotal: Number(res.subtotal),
+        discount: Number(res.discount),
+        tax: 0,
+        total: Number(res.grand_total),
+        paid: Number(res.amount_paid),
+        change_amount: Number(res.change_amount),
+        payment_method: res.payment_method,
+        items: res.items.map((it) => ({
+          product_name: it.name,
+          qty: it.quantity,
+          price: Number(it.price),
+          subtotal: Number(it.subtotal),
+        })),
       });
       setCart([]);
       setShowPay(false);
@@ -110,21 +115,50 @@ function KasirPage() {
   return (
     <AppShell staff={staff} fullBleed>
       <div className="grid h-screen grid-cols-1 lg:grid-cols-[1fr_420px]">
-        {/* Products */}
+        {/* Products Section */}
         <section className="flex min-h-0 flex-col p-5">
-          <header className="mb-4 flex flex-wrap items-center gap-3">
+          <header className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-extrabold text-[color:var(--brand-deep)]">Kasir</h1>
-              <p className="text-sm text-muted-foreground">Pilih produk untuk menambahkan ke keranjang.</p>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-amber-100 px-3 py-0.5 text-xs font-bold text-amber-900 border border-amber-300">
+                  {staff.outletName ?? "Outlet Kasir"}
+                </span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">POS</span>
+              </div>
+              <h1 className="text-2xl font-extrabold text-[color:var(--brand-deep)]">Kasir POS</h1>
             </div>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Cari produk..."
-                className="w-72 rounded-xl border border-border bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[color:var(--brand)]"
-              />
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Display Links (Open in New Tab) */}
+              <a
+                href="/display-pesanan"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 border border-blue-200 hover:bg-blue-100 transition"
+                title="Buka Layar Display Pesanan di depan Meja Kasir (Pelanggan)"
+              >
+                <Monitor className="h-4 w-4" /> Display Pesanan <ExternalLink className="h-3 w-3 opacity-60" />
+              </a>
+
+              <a
+                href="/display-nomor"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-xl bg-purple-50 px-3 py-2 text-xs font-bold text-purple-700 border border-purple-200 hover:bg-purple-100 transition"
+                title="Buka Layar Display Nomor Antrean TV Gantung"
+              >
+                <Tv className="h-4 w-4" /> Display TV Antrean <ExternalLink className="h-3 w-3 opacity-60" />
+              </a>
+
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Cari produk..."
+                  className="w-48 sm:w-60 rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-[color:var(--brand)]"
+                />
+              </div>
             </div>
           </header>
 
@@ -147,42 +181,54 @@ function KasirPage() {
                 ))}
               </div>
             ) : products.length === 0 ? (
-              <div className="grid h-full place-items-center text-muted-foreground">Tidak ada produk.</div>
+              <div className="grid h-full place-items-center text-muted-foreground text-sm">
+                Belum ada produk untuk toko ini.
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-                {products.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart({ id: p.id, name: p.name, price: Number(p.price), stock: p.stock })}
-                    disabled={p.stock <= 0}
-                    className="group relative flex flex-col items-start rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-border transition hover:-translate-y-0.5 hover:shadow-md hover:ring-[color:var(--brand)]/40 disabled:opacity-50"
-                  >
-                    <div className="mb-3 grid h-24 w-full place-items-center rounded-xl text-3xl font-black text-white" style={{ background: "linear-gradient(135deg,#0047B3,#00A3FF)" }}>
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="line-clamp-2 min-h-[2.5rem] font-semibold">{p.name}</div>
-                    <div className="mt-1 text-lg font-extrabold text-[color:var(--brand-deep)]">{rupiah(Number(p.price))}</div>
-                    <div className={`mt-1 text-[11px] font-semibold ${p.stock <= 5 ? "text-destructive" : "text-muted-foreground"}`}>
-                      Stok: {p.stock}
-                    </div>
-                  </button>
-                ))}
+                {products.map((p) => {
+                  const priceVal = Number(p.selling_price ?? p.price ?? 0);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => addToCart({ id: p.id, name: p.name, price: priceVal, stock: p.stock })}
+                      disabled={p.stock <= 0}
+                      className="group relative flex flex-col items-start rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-border transition hover:-translate-y-0.5 hover:shadow-md hover:ring-[color:var(--brand)]/40 disabled:opacity-50"
+                    >
+                      <div
+                        className="mb-3 grid h-24 w-full place-items-center rounded-xl text-3xl font-black text-white"
+                        style={{ background: "linear-gradient(135deg,#0047B3,#00A3FF)" }}
+                      >
+                        {p.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="line-clamp-2 min-h-[2.5rem] font-semibold">{p.name}</div>
+                      <div className="mt-1 text-lg font-extrabold text-[color:var(--brand-deep)]">
+                        {rupiah(priceVal)}
+                      </div>
+                      <div
+                        className={`mt-1 text-[11px] font-semibold ${p.stock <= 5 ? "text-destructive" : "text-muted-foreground"}`}
+                      >
+                        Stok: {p.stock}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         </section>
 
-        {/* Cart */}
+        {/* Cart Sidebar */}
         <aside className="flex min-h-0 flex-col border-l border-border bg-white/80 backdrop-blur">
           <div className="border-b border-border p-5">
             <div className="flex items-center gap-3">
               <ShoppingCart className="h-6 w-6 text-[color:var(--brand)]" />
               <div>
-                <div className="text-xs uppercase tracking-widest text-muted-foreground">Keranjang</div>
+                <div className="text-xs uppercase tracking-widest text-muted-foreground">Keranjang Belanja</div>
                 <div className="text-lg font-extrabold text-[color:var(--brand-deep)]">{cart.length} item</div>
               </div>
               <div className="ml-auto text-right text-xs text-muted-foreground">
-                Kasir: <b className="text-foreground">{staff.name}</b>
+                Petugas: <b className="text-foreground">{staff.name}</b>
               </div>
             </div>
           </div>
@@ -192,7 +238,7 @@ function KasirPage() {
               <div className="grid h-full place-items-center text-center text-muted-foreground">
                 <div>
                   <ShoppingCart className="mx-auto mb-2 h-10 w-10 opacity-40" />
-                  Belum ada produk.
+                  Keranjang kosong.
                   <br />
                   Sentuh produk untuk menambahkan.
                 </div>
@@ -206,17 +252,26 @@ function KasirPage() {
                         <div className="truncate font-semibold">{l.product_name}</div>
                         <div className="text-xs text-muted-foreground">{rupiah(l.price)}</div>
                       </div>
-                      <button onClick={() => removeLine(l.product_id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white hover:text-destructive">
+                      <button
+                        onClick={() => removeLine(l.product_id)}
+                        className="rounded-lg p-1.5 text-muted-foreground hover:bg-white hover:text-destructive"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
                       <div className="flex items-center gap-2 rounded-full bg-white p-1 ring-1 ring-border">
-                        <button onClick={() => setQty(l.product_id, l.qty - 1)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary">
+                        <button
+                          onClick={() => setQty(l.product_id, l.qty - 1)}
+                          className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary"
+                        >
                           <Minus className="h-4 w-4" />
                         </button>
                         <div className="w-8 text-center font-bold">{l.qty}</div>
-                        <button onClick={() => setQty(l.product_id, l.qty + 1)} className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--brand)] text-white">
+                        <button
+                          onClick={() => setQty(l.product_id, l.qty + 1)}
+                          className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--brand)] text-white"
+                        >
                           <Plus className="h-4 w-4" />
                         </button>
                       </div>
@@ -234,7 +289,7 @@ function KasirPage() {
               <span>{rupiah(subtotal)}</span>
             </div>
             <div className="mb-4 flex items-baseline justify-between">
-              <span className="text-sm font-semibold text-muted-foreground">TOTAL</span>
+              <span className="text-sm font-semibold text-muted-foreground">TOTAL PENJUALAN</span>
               <span className="text-3xl font-extrabold text-[color:var(--brand-deep)]">{rupiah(total)}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -250,7 +305,7 @@ function KasirPage() {
                 disabled={cart.length === 0}
                 className="btn-orange rounded-2xl py-4 font-extrabold disabled:opacity-50"
               >
-                Bayar
+                Bayar Sekarang
               </button>
             </div>
           </div>
