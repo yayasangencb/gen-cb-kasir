@@ -7,7 +7,7 @@ import { getStoreSettings, listActiveOrders } from "@/lib/pos.functions";
 import { rupiah } from "@/lib/format";
 
 export const Route = createFileRoute("/display-pesanan")({
-  head: () => ({ meta: [{ title: "Display Depan Pelanggan — Kasir" }] }),
+  head: () => ({ meta: [{ title: "Display Depan Pelanggan — Light Theme" }] }),
   component: CustomerFacingDisplayPage,
 });
 
@@ -95,12 +95,12 @@ function CustomerFacingDisplayPage() {
     }
   };
 
-  const storeName = settings?.store_name || "Kasir Outlet";
+  const storeName = settings?.store_name || "Outlet Kasir";
   const logoUrl = settings?.logo_url;
   const slide = promoSlides[currentSlide];
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex font-sans bg-slate-950 text-slate-100 select-none">
+    <div className="h-screen w-screen overflow-hidden flex font-sans bg-[#F8F9FB] text-[#1A1D29] select-none">
       {/* ------------------------------------------------------------------ */}
       {/* AREA 1 (70% LAYAR): PROMOTIONAL BANNER SLIDESHOW & BRANDING        */}
       {/* ------------------------------------------------------------------ */}
@@ -114,34 +114,35 @@ function CustomerFacingDisplayPage() {
             }`}
           >
             <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/60" />
+            {/* Local Dark Overlay ONLY on top of photo to ensure high text contrast */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
           </div>
         ))}
 
-        {/* Top Header Overlay - NO Gen-CB Branding */}
+        {/* Top Header Overlay - Light Theme Glass Card */}
         <div className="relative z-10 p-8 flex items-center justify-between">
-          <div className="flex items-center gap-4 bg-slate-950/80 backdrop-blur-md px-6 py-3.5 rounded-2xl border border-white/10 shadow-2xl">
+          <div className="flex items-center gap-4 bg-white/95 backdrop-blur-md px-6 py-3.5 rounded-3xl border border-slate-200 shadow-lg text-[#1A1D29]">
             {logoUrl ? (
-              <img src={logoUrl} alt={storeName} className="h-12 w-12 object-contain rounded-xl bg-white p-1" />
+              <img src={logoUrl} alt={storeName} className="h-12 w-12 object-contain rounded-2xl bg-white border border-slate-200 p-1 shadow-xs" />
             ) : (
-              <div className="h-12 w-12 rounded-xl bg-amber-500 text-slate-950 grid place-items-center font-black text-2xl shadow-lg border border-amber-400">
+              <div className="h-12 w-12 rounded-2xl bg-[#2952E3] text-white grid place-items-center font-black text-2xl shadow-md">
                 {storeName.charAt(0).toUpperCase()}
               </div>
             )}
             <div>
-              <div className="text-[10px] font-black tracking-widest text-amber-400 uppercase">OUTLET KASIR</div>
-              <h1 className="text-2xl font-black text-white">{storeName}</h1>
+              <div className="text-[10px] font-black tracking-widest text-[#F97316] uppercase">OUTLET KASIR</div>
+              <h1 className="text-2xl font-black text-[#1A1D29]">{storeName}</h1>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-2 bg-emerald-500/20 text-emerald-300 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold border border-emerald-500/30">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" /> LAYAR PELANGGAN AKTIF
+            <span className="flex items-center gap-2 bg-emerald-50 text-emerald-700 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-emerald-200 shadow-xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" /> LAYAR PELANGGAN AKTIF
             </span>
 
             <button
               onClick={toggleFullscreen}
-              className="flex items-center gap-2 bg-slate-900/80 hover:bg-slate-800 backdrop-blur-md text-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-700 transition"
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-[#1A1D29] backdrop-blur-md px-4 py-2.5 rounded-2xl text-xs font-bold border border-slate-300 shadow-xs transition active:scale-95"
             >
               {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               {fullscreen ? "Kecilkan" : "Layar Penuh"}
@@ -149,12 +150,12 @@ function CustomerFacingDisplayPage() {
           </div>
         </div>
 
-        {/* Center Content Promo Overlay */}
+        {/* Center Content Promo Overlay (White Text over Local Dark Photo Gradient) */}
         <div className="relative z-10 p-12 max-w-3xl">
-          <span className="inline-flex items-center gap-2 bg-amber-500 text-slate-950 px-4 py-1.5 rounded-full text-xs font-black tracking-wider uppercase mb-4 shadow-lg">
+          <span className="inline-flex items-center gap-2 bg-[#F97316] text-white px-4 py-1.5 rounded-full text-xs font-black tracking-wider uppercase mb-4 shadow-lg">
             <Sparkles className="h-4 w-4" /> PROMO SPESIAL
           </span>
-          <h2 className="text-5xl font-black text-white leading-tight drop-shadow-lg mb-4">{slide.title}</h2>
+          <h2 className="text-5xl font-black text-white leading-tight drop-shadow-md mb-4">{slide.title}</h2>
           <p className="text-lg text-slate-200 font-medium drop-shadow">{slide.subtitle}</p>
         </div>
 
@@ -165,7 +166,7 @@ function CustomerFacingDisplayPage() {
               key={i}
               onClick={() => setCurrentSlide(i)}
               className={`h-2.5 rounded-full transition-all duration-500 ${
-                i === currentSlide ? "w-12 bg-amber-400" : "w-3 bg-white/40 hover:bg-white/70"
+                i === currentSlide ? "w-12 bg-white shadow-md" : "w-3 bg-white/50 hover:bg-white/80"
               }`}
             />
           ))}
@@ -173,27 +174,27 @@ function CustomerFacingDisplayPage() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* AREA 2 (30% LAYAR): LIVE SHOPPING BASKET OR QRIS PAYMENT ON PAY   */}
+      {/* AREA 2 (30% LAYAR): LIVE SHOPPING BASKET OR QRIS PAYMENT (LIGHT)  */}
       {/* ------------------------------------------------------------------ */}
-      <section className="w-[30%] h-full bg-slate-900 border-l border-slate-800 p-6 flex flex-col justify-between shadow-2xl relative z-20">
+      <section className="w-[30%] h-full bg-white border-l border-[#E5E7EB] p-6 flex flex-col justify-between shadow-xl relative z-20">
         {liveCart.showQris ? (
-          /* STATE B: QRIS PAYMENT SCAN (APPEARS ON QRIS CHECKOUT) */
+          /* STATE B: QRIS PAYMENT SCAN (LIGHT THEME) */
           <div className="flex-1 flex flex-col justify-between">
-            <div className="text-center pb-5 border-b border-slate-800">
-              <div className="inline-flex items-center gap-1.5 text-xs font-black text-amber-400 uppercase tracking-widest bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 mb-2">
+            <div className="text-center pb-5 border-b border-[#E5E7EB]">
+              <div className="inline-flex items-center gap-1.5 text-xs font-black text-[#F97316] uppercase tracking-widest bg-[#FFF4E6] px-3 py-1 rounded-full border border-[#F97316]/20 mb-2">
                 <QrCode className="h-3.5 w-3.5" /> PEMBAYARAN QRIS
               </div>
-              <h3 className="text-xl font-black text-white">SCAN QRIS DI SINI</h3>
-              <p className="text-xs text-slate-400 mt-1">BCA, Mandiri, GoPay, OVO, ShopeePay, Dana & QRIS Bank</p>
+              <h3 className="text-xl font-black text-[#1A1D29]">SCAN QRIS DI SINI</h3>
+              <p className="text-xs text-slate-500 mt-1">BCA, Mandiri, GoPay, OVO, ShopeePay, Dana & QRIS Bank</p>
             </div>
 
-            {/* QRIS Code Card */}
-            <div className="my-auto bg-slate-950 border border-slate-800 rounded-3xl p-6 text-center shadow-inner flex flex-col items-center justify-center">
-              <div className="bg-rose-600 text-white font-black text-xs px-4 py-1 rounded-md tracking-wider mb-4 shadow">
+            {/* QRIS Code Card Light */}
+            <div className="my-auto bg-[#FAFAFB] border border-[#E5E7EB] rounded-3xl p-6 text-center shadow-xs flex flex-col items-center justify-center">
+              <div className="bg-[#F97316] text-white font-black text-xs px-4 py-1 rounded-md tracking-wider mb-4 shadow">
                 QRIS
               </div>
 
-              <div className="bg-white p-4 rounded-2xl shadow-2xl border-4 border-slate-200">
+              <div className="bg-white p-4 rounded-2xl shadow-md border-2 border-[#E5E7EB]">
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=00020101021226680016ID.GENCB.KASIR0118936009140000000000520458125303360540${
                     liveCart.total || 15000
@@ -203,64 +204,64 @@ function CustomerFacingDisplayPage() {
                 />
               </div>
 
-              <p className="text-[11px] font-bold text-slate-400 mt-4 uppercase tracking-wider">
-                MERCHANT: <span className="text-white font-extrabold">{storeName}</span>
+              <p className="text-[11px] font-bold text-slate-500 mt-4 uppercase tracking-wider">
+                MERCHANT: <span className="text-[#1A1D29] font-black">{storeName}</span>
               </p>
             </div>
 
-            {/* Total Payment Callout */}
-            <div className="bg-slate-950 border border-amber-500/40 rounded-2xl p-4 text-center">
-              <div className="text-xs text-slate-400 font-semibold">TOTAL PEMBAYARAN:</div>
-              <div className="text-3xl font-black text-amber-400 mt-1">{rupiah(liveCart.total)}</div>
+            {/* Total Payment Callout Light */}
+            <div className="bg-white border border-[#2952E3]/20 rounded-2xl p-4 text-center shadow-xs">
+              <div className="text-xs text-slate-500 font-semibold">TOTAL PEMBAYARAN:</div>
+              <div className="text-3xl font-black text-[#F97316] mt-1">{rupiah(liveCart.total)}</div>
             </div>
           </div>
         ) : (
-          /* STATE A: LIVE SHOPPING BASKET (WHAT KASIR IS CLICKING IN REAL-TIME) */
+          /* STATE A: LIVE SHOPPING BASKET (LIGHT THEME) */
           <div className="flex-1 flex flex-col justify-between">
             <div>
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-                <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-400 grid place-items-center font-bold">
+              <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB]">
+                <div className="h-10 w-10 rounded-2xl bg-[#2952E3]/10 text-[#2952E3] grid place-items-center font-bold">
                   <ShoppingCart className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-white">PESANAN ANDA</h3>
-                  <p className="text-xs text-slate-400">Rincian pesanan sedang diproses kasir</p>
+                  <h3 className="text-lg font-black text-[#1A1D29]">PESANAN ANDA</h3>
+                  <p className="text-xs text-slate-500">Rincian pesanan sedang diproses kasir</p>
                 </div>
               </div>
 
               {/* Items List */}
               <div className="mt-4 space-y-3 max-h-[50vh] overflow-y-auto pr-1">
                 {liveCart.items.length === 0 ? (
-                  <div className="py-16 text-center text-slate-500">
-                    <ShoppingBag className="mx-auto h-12 w-12 opacity-30 mb-2" />
-                    <p className="text-xs font-semibold">Selamat datang!</p>
-                    <p className="text-[11px] text-slate-600">Pesanan Anda akan tampil di sini saat kasir memilih menu.</p>
+                  <div className="py-20 text-center text-slate-400">
+                    <ShoppingBag className="mx-auto h-12 w-12 opacity-30 mb-2 text-[#2952E3]" />
+                    <p className="text-xs font-semibold text-[#1A1D29]">Selamat datang!</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Pesanan Anda akan tampil di sini saat kasir memilih menu.</p>
                   </div>
                 ) : (
                   liveCart.items.map((it, idx) => (
-                    <div key={idx} className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 flex items-center justify-between">
+                    <div key={idx} className="bg-[#FAFAFB] border border-[#E5E7EB] rounded-2xl p-3.5 flex items-center justify-between">
                       <div>
-                        <div className="font-extrabold text-sm text-white">{it.product_name}</div>
-                        <div className="text-xs text-slate-400">
+                        <div className="font-extrabold text-sm text-[#1A1D29]">{it.product_name}</div>
+                        <div className="text-xs text-slate-500 font-semibold">
                           {it.qty} x {rupiah(it.price)}
                         </div>
                       </div>
-                      <div className="font-black text-sm text-amber-400">{rupiah(it.price * it.qty)}</div>
+                      <div className="font-black text-sm text-[#2952E3]">{rupiah(it.price * it.qty)}</div>
                     </div>
                   ))
                 )}
               </div>
             </div>
 
-            {/* Total Pembayaran Footer */}
-            <div className="pt-4 border-t border-slate-800 space-y-3">
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+            {/* Total Pembayaran Footer Light Card */}
+            <div className="pt-4 border-t border-[#E5E7EB] space-y-3">
+              <div className="bg-[#FAFAFB] border border-[#E5E7EB] rounded-2xl p-4 flex items-center justify-between shadow-xs">
                 <div>
-                  <div className="text-xs font-semibold text-slate-400">TOTAL BELANJA:</div>
-                  <div className="text-2xl font-black text-amber-400">{rupiah(liveCart.total)}</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase">TOTAL BELANJA:</div>
+                  <div className="text-2xl font-black text-[#F97316] mt-0.5">{rupiah(liveCart.total)}</div>
                 </div>
                 <div className="text-right">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 shadow-xs">
                     <CheckCircle2 className="h-3.5 w-3.5" /> LIVE SYNC
                   </span>
                 </div>
