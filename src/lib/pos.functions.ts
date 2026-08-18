@@ -74,21 +74,40 @@ export const checkout = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const staff = await requireStaff();
     const db = await admin();
-    const { data: result, error } = await db.rpc("create_pos_transaction", {
-      _cashier_id: staff.id,
-      _customer_name: data.customer_name ?? "",
-      _order_type: data.order_type,
-      _discount: data.discount,
-      _payment_method: data.payment_method,
-      _amount_paid: data.amount_paid,
-      _notes: data.notes ?? "",
-      _items: data.items,
-      _outlet_id: staff.outletId,
-    });
-    if (error) throw new Error(error.message.replace(/^.*ERROR:\s*/i, ""));
-    const out = result as unknown as { transaction_id: string; queue_number: number };
-    const receipt = await buildReceipt(out.transaction_id);
-    return receipt;
+
+    let attempts = 0;
+    let lastError: any = null;
+
+    while (attempts < 3) {
+      attempts++;
+      const { data: result, error } = await db.rpc("create_pos_transaction", {
+        _cashier_id: staff.id,
+        _customer_name: data.customer_name ?? "",
+        _order_type: data.order_type,
+        _discount: data.discount,
+        _payment_method: data.payment_method,
+        _amount_paid: data.amount_paid,
+        _notes: data.notes ?? "",
+        _items: data.items,
+        _outlet_id: staff.outletId,
+      });
+
+      if (!error) {
+        const out = result as unknown as { transaction_id: string; queue_number: number };
+        const receipt = await buildReceipt(out.transaction_id);
+        return receipt;
+      }
+
+      lastError = error;
+      if (error.message && error.message.includes("unique constraint")) {
+        // Wait 100ms before retry
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        continue;
+      }
+      break;
+    }
+
+    throw new Error(lastError?.message ? lastError.message.replace(/^.*ERROR:\s*/i, "") : "Gagal memproses transaksi");
   });
 
 async function buildReceipt(transactionId: string) {
