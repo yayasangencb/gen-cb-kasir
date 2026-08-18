@@ -79,10 +79,8 @@ function SuperAdminPage() {
   const [createdPins, setCreatedPins] = useState<any | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
 
-  // Queries: Allow both Super Admin and Admin Kasir (PIN 1234) to access platform management
-  const isSuperAdmin = Boolean(
-    staff?.isSuperAdmin || staff?.role === "super_admin" || staff?.role === "admin" || staff?.role === "tenant_admin",
-  );
+  // Queries: Super Admin Platform Management
+  const isSuperAdmin = Boolean(staff?.isSuperAdmin || staff?.role === "super_admin");
 
   const { data: metrics, isLoading, refetch } = useQuery({
     queryKey: ["super-admin-metrics"],

@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Minus, Plus, Search, ShoppingBag, ShoppingCart, Trash2, User, Utensils } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { PaymentModal, type PaymentMethod, type PaymentPayload } from "@/components/PaymentModal";
@@ -10,6 +10,7 @@ import { ReceiptModal, type ReceiptData } from "@/components/ReceiptModal";
 import { getCurrentStaff } from "@/lib/auth.functions";
 import { rupiah } from "@/lib/format";
 import { checkout, listCatalog } from "@/lib/pos.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/kasir")({
   head: () => ({ meta: [{ title: "Kasir — Gen CB Kasir" }] }),

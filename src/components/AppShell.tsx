@@ -30,7 +30,6 @@ type NavItem = {
 
 const ADMIN_NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/admin", label: "Super Admin Platform", icon: Shield },
   { to: "/kasir", label: "Kasir", icon: LayoutGrid },
   { to: "/pesanan-aktif", label: "Pesanan Aktif", icon: Clock },
   { to: "/display-pesanan", label: "Display Pesanan", icon: Monitor, external: true },
@@ -39,7 +38,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/stok", label: "Stok", icon: Boxes },
   { to: "/omzet", label: "Omzet Penjualan", icon: BarChart3 },
   { to: "/transaksi", label: "Transaksi", icon: Receipt },
-  { to: "/pengguna", label: "Pengguna", icon: Users },
+  { to: "/pengguna", label: "Kelola Kasir", icon: Users },
   { to: "/pengaturan", label: "Pengaturan Toko", icon: Settings },
 ];
 
